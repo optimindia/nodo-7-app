@@ -27,13 +27,13 @@ jobs:
         VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
       
     - name: FTP-Deploy-Action
-      uses: SamKirkland/FTP-Deploy-Action@4.3.5
+      uses: SamKirkland/FTP-Deploy-Action@v4.3.5
       with:
         server: ${{ secrets.FTP_SERVER }}
         username: ${{ secrets.FTP_USERNAME }}
         password: ${{ secrets.FTP_PASSWORD }}
         local-dir: ./dist/    # We upload the CONTENTS of dist
-        server-dir: ./public_html/ # CAREFUL: Check this is correct for your server
+        server-dir: ./ # WE ASSUME the FTP User is rooted to 'public_html'. If using main account, change to './public_html/'
         exclude: |
           **/.git*
           **/.git*/**
