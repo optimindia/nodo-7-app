@@ -1,5 +1,5 @@
 -- ==============================================
--- SECURE USER CREATION (v4 - UPSERT FIX)
+-- SECURE USER CREATION (v5 - UUID PRE-GEN FIX)
 -- ==============================================
 
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
@@ -28,36 +28,66 @@ BEGIN
     RAISE EXCEPTION 'Acceso Denegado.';
   END IF;
 
-  -- Resellers CANNOT create Admins
   IF caller_role = 'reseller' AND user_role = 'admin' THEN
     RAISE EXCEPTION 'Seguridad: Los revendedores no pueden crear administradores.';
   END IF;
 
-  -- 3. Encrypt Password
+  -- 3. Pre-Generate UUID to ensure we have it
+  new_user_id := gen_random_uuid();
+  
+  -- 4. Encrypt Password
   encrypted_pw := crypt(password, gen_salt('bf'));
   
-  -- 4. Create Auth User
+  -- 5. Create Auth User (Using Pre-Gen ID)
   INSERT INTO auth.users (
-    instance_id, id, aud, role, email, encrypted_password, email_confirmed_at, 
-    raw_app_meta_data, raw_user_meta_data, created_at, updated_at
+    instance_id,
+    id, 
+    aud, 
+    role, 
+    email, 
+    encrypted_password, 
+    email_confirmed_at, 
+    raw_app_meta_data, 
+    raw_user_meta_data, 
+    created_at, 
+    updated_at
   ) VALUES (
-    '00000000-0000-0000-0000-000000000000', gen_random_uuid(), 'authenticated', 'authenticated', 
-    email, encrypted_pw, now(), 
+    '00000000-0000-0000-0000-000000000000', 
+    new_user_id, -- Use validation variable
+    'authenticated', 
+    'authenticated', 
+    email, 
+    encrypted_pw, 
+    now(), 
     '{"provider": "email", "providers": ["email"]}', 
     json_build_object('role', user_role), 
-    now(), now()
-  ) RETURNING id INTO new_user_id;
-
-  -- 5. Create Identity
-  INSERT INTO auth.identities (
-    id, user_id, identity_data, provider, provider_id, last_sign_in_at, created_at, updated_at
-  ) VALUES (
-    gen_random_uuid(), new_user_id, json_build_object('sub', new_user_id, 'email', email), 
-    'email', new_user_id::text, NULL, now(), now()
+    now(), 
+    now()
   );
 
-  -- 6. Create Profile (Safe Upsert)
-  -- Uses ON CONFLICT to handle cases where a Trigger might have already created the profile
+  -- 6. Create Identity (Using Pre-Gen ID)
+  -- Explicitly casting to text to satisfy constraint
+  INSERT INTO auth.identities (
+    id, 
+    user_id, 
+    identity_data, 
+    provider, 
+    provider_id, 
+    last_sign_in_at, 
+    created_at, 
+    updated_at
+  ) VALUES (
+    gen_random_uuid(), 
+    new_user_id, 
+    json_build_object('sub', new_user_id, 'email', email), 
+    'email', 
+    new_user_id::text, -- Cannot be null now
+    NULL, 
+    now(), 
+    now()
+  );
+
+  -- 7. Create Profile (Safe Upsert)
   INSERT INTO public.profiles (id, role, credits, created_by, email, created_at)
   VALUES (new_user_id, user_role, user_credits, creator_id, email, now())
   ON CONFLICT (id) DO UPDATE
@@ -67,10 +97,10 @@ BEGIN
     created_by = EXCLUDED.created_by,
     email = EXCLUDED.email;
 
-  -- 7. Deduct Strategy
+  -- 8. Deduct Strategy
   IF caller_role = 'reseller' THEN
     UPDATE profiles 
-    SET credits = credits - user_credits -- Deduct the credits GIVEN to the new user
+    SET credits = credits - user_credits 
     WHERE id = auth.uid();
     
     IF (SELECT credits FROM profiles WHERE id = auth.uid()) < 0 THEN

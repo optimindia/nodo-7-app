@@ -55,8 +55,16 @@ export const useAdminData = (page = 1, perPage = 10, searchTerm = '') => {
             if (usersResult.error) throw usersResult.error;
             if (statsResult.error) throw statsResult.error;
 
-            setUsers(usersResult.data || []);
-            setTotalRecords(usersResult.count || 0);
+            let fetchedUsers = usersResult.data || [];
+
+            // --- CLIENT SIDE SAFETY NET (RESTORED) ---
+            // Critical: If RLS is not active/working, this prevents data leaks.
+            if (myProfile?.role === 'reseller') {
+                fetchedUsers = fetchedUsers.filter(u => u.created_by === user.id || u.id === user.id);
+            }
+
+            setUsers(fetchedUsers);
+            setTotalRecords(fetchedUsers.length < (usersResult.count || 0) ? fetchedUsers.length : (usersResult.count || 0));
 
             // Set Stats from RPC
             setStats(statsResult.data);
