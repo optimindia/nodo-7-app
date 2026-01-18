@@ -30,10 +30,17 @@ const AdminDashboard = () => {
         e.preventDefault();
         setCreateLoading(true);
         try {
-            // 1. Create Temporary Client (to avoid logging out Admin)
+            // 1. Create Temporary Client (to avoid logging out Admin & ensure Anon request)
             const tempSupabase = createClient(
                 import.meta.env.VITE_SUPABASE_URL,
-                import.meta.env.VITE_SUPABASE_ANON_KEY
+                import.meta.env.VITE_SUPABASE_ANON_KEY,
+                {
+                    auth: {
+                        persistSession: false, // CRITICAL: Do not inherit Admin session!
+                        autoRefreshToken: false,
+                        detectSessionInUrl: false
+                    }
+                }
             );
 
             // 2. Standard Sign Up (Creates User in auth.users)
