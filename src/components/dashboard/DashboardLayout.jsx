@@ -12,6 +12,7 @@ import Analytics from '../../pages/dashboard/Analytics';
 import Goals from '../../pages/dashboard/Goals';
 import AIChat from '../../pages/dashboard/AIChat';
 import Categories from '../../pages/dashboard/Categories';
+import AdminDashboard from '../../pages/admin/AdminDashboard';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const DashboardLayout = ({ children, currentView, setCurrentView }) => {
@@ -73,7 +74,9 @@ const DashboardLayout = ({ children, currentView, setCurrentView }) => {
             case 'goals': return <Goals {...sharedProps} />;
             case 'categories': return <Categories />;
             case 'ai-chat': return <AIChat />;
+            case 'ai-chat': return <AIChat />;
             case 'settings': return <Settings />;
+            case 'admin': return <AdminDashboard />;
             default: return <DashboardHome {...sharedProps} />;
         }
     };

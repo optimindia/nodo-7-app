@@ -10,8 +10,10 @@ import {
     Zap,
     Box,
     Tag,
-    X
+    X,
+    ShieldCheck
 } from 'lucide-react';
+import { useUserRole } from '../../hooks/useUserRole';
 import { useAuth } from '../../context/AuthContext';
 
 const menuItems = [
@@ -26,6 +28,11 @@ const menuItems = [
 
 const Sidebar = ({ currentView, setCurrentView, isOpen, onClose }) => {
     const { signOut } = useAuth();
+    const { canManageUsers } = useUserRole();
+
+    const displayItems = canManageUsers
+        ? [...menuItems, { id: 'admin', icon: ShieldCheck, label: 'Panel Admin' }]
+        : menuItems;
 
     const SidebarContent = () => (
         <div className="flex flex-col h-full">
@@ -50,7 +57,7 @@ const Sidebar = ({ currentView, setCurrentView, isOpen, onClose }) => {
 
             {/* Navigation */}
             <nav className="flex-1 px-4 py-6 space-y-2 overflow-y-auto custom-scrollbar">
-                {menuItems.map((item) => {
+                {displayItems.map((item) => {
                     const isActive = currentView === item.id;
                     return (
                         <motion.button
