@@ -23,33 +23,28 @@ export const useDashboardData = (refreshKey = 0) => {
             try {
                 setLoading(true);
 
-                // 1. Fetch Profile
+                // 1. Fetch Profile (Secure RPC)
                 const { data: profileData, error: profileError } = await supabase
-                    .from('profiles')
-                    .select('*')
-                    .eq('id', user.id)
-                    .single();
+                    .rpc('get_profile_secure', { p_user_id: user.id });
 
-                if (profileData) setProfile(profileData);
+                // RPC returns a set (array) even if it's one row, normally. 
+                // However, profile RPC might return 0 or 1 row.
+                // Let's handle it as an array or single object depending on RPC definition.
+                // Our RPC returns SETOF profiles.
 
-                // 2. Fetch Transactions
+                if (profileData && profileData.length > 0) setProfile(profileData[0]);
+
+                // 2. Fetch Transactions (Secure RPC)
                 const { data: txData } = await supabase
-                    .from('transactions')
-                    .select('*')
-                    .eq('user_id', user.id)
-                    .order('created_at', { ascending: false });
+                    .rpc('get_transactions_secure', { p_user_id: user.id });
 
-                // 3. Fetch Wallets
+                // 3. Fetch Wallets (Secure RPC)
                 const { data: walletsData } = await supabase
-                    .from('wallets')
-                    .select('*')
-                    .eq('user_id', user.id);
+                    .rpc('get_wallets_secure', { p_user_id: user.id });
 
-                // 4. Fetch Goals
+                // 4. Fetch Goals (Secure RPC)
                 const { data: goalsData } = await supabase
-                    .from('goals')
-                    .select('*')
-                    .eq('user_id', user.id);
+                    .rpc('get_goals_secure', { p_user_id: user.id });
 
                 if (txData) {
                     setTransactions(txData);

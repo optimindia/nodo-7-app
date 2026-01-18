@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { useUserRole } from '../../hooks/useUserRole';
 import { useAdminData } from '../../hooks/useAdminData';
 import { supabase } from '../../lib/supabaseClient';
-import { createClient } from '@supabase/supabase-js';
 import { Users, CreditCard, Activity, Plus, Search, Shield, User, DollarSign, Loader2, X, MoreVertical, Ban, Zap, Pencil, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -30,49 +29,23 @@ const AdminDashboard = () => {
         e.preventDefault();
         setCreateLoading(true);
         try {
-            // 1. Create Temporary Client (to avoid logging out Admin & ensure Anon request)
-            const tempSupabase = createClient(
-                import.meta.env.VITE_SUPABASE_URL,
-                import.meta.env.VITE_SUPABASE_ANON_KEY,
-                {
-                    auth: {
-                        persistSession: false, // CRITICAL: Do not inherit Admin session!
-                        autoRefreshToken: false,
-                        detectSessionInUrl: false
-                    }
-                }
-            );
-
-            // 2. Standard Sign Up (Creates User in auth.users)
-            // This bypasses the 500 error because it uses the native endpoint
-            const { data: authData, error: authError } = await tempSupabase.auth.signUp({
+            // BACK TO BASICS: Secure RPC that creates both Auth + Profile + PasswordHash
+            // This is matched with verify_user_custom for login
+            const { error: rpcError } = await supabase.rpc('create_new_user', {
                 email: newUser.email,
                 password: newUser.password,
-            });
-
-            if (authError) throw authError;
-            if (!authData.user) throw new Error("No se pudo crear el usuario (Auth)");
-
-            // 3. Finalize Setup (Set Role, Credits, Confirm Email)
-            // This runs as Admin/Reseller to set the protected fields
-            const { error: rpcError } = await supabase.rpc('finalize_new_user', {
-                target_user_id: authData.user.id,
-                target_role: newUser.role,
-                target_credits: parseInt(newUser.credits),
+                user_role: newUser.role,
+                user_credits: parseInt(newUser.credits),
                 creator_id: (await supabase.auth.getUser()).data.user.id
             });
 
-            if (rpcError) {
-                // Warning: User is created in Auth but setup failed.
-                console.error("User created but finalize failed:", rpcError);
-                throw new Error("Usuario creado en Auth, pero falló la configuración (RPC): " + rpcError.message);
-            }
+            if (rpcError) throw rpcError;
 
             // Success
             setIsCreateModalOpen(false);
             setNewUser({ email: '', password: '', role: 'client', credits: 0 });
             refreshData();
-            alert('Usuario creado exitosamente 🚀');
+            alert('Usuario creado exitosamente (Modo Blindado) 🚀');
         } catch (error) {
             console.error("Create user error:", error);
             alert('Error: ' + error.message);

@@ -28,16 +28,14 @@ const Wallets = () => {
     const fetchWallets = async () => {
         try {
             setLoading(true);
-            const { data, error } = await supabase
-                .from('wallets')
-                .select('*')
-                .eq('user_id', user.id)
-                .order('created_at', { ascending: true });
+            // USE RPC: Secure Fetch bypassing RLS
+            const { data, error } = await supabase.rpc('get_wallets_secure', {
+                p_user_id: user.id
+            });
 
             if (error) throw error;
 
-            // Calculate balances for each wallet locally
-            // In a real app, you might use a DB view or rpc function for performance
+            // Calculate balances locally (unchanged logic)
             const walletsWithBalance = data.map(w => {
                 const walletTx = transactions.filter(tx => tx.wallet_id === w.id);
                 const balance = walletTx.reduce((acc, tx) => {
@@ -62,26 +60,22 @@ const Wallets = () => {
         setSubmitting(true);
         try {
             if (editingWallet) {
-                // Update
-                const { error } = await supabase
-                    .from('wallets')
-                    .update({
-                        name,
-                        type,
-                        color: getColorByType(type)
-                    })
-                    .eq('id', editingWallet.id);
+                // UPDATE RPC
+                const { error } = await supabase.rpc('update_wallet_secure', {
+                    p_wallet_id: editingWallet.id,
+                    p_name: name,
+                    p_type: type,
+                    p_color: getColorByType(type)
+                });
                 if (error) throw error;
             } else {
-                // Create
-                const { error } = await supabase
-                    .from('wallets')
-                    .insert([{
-                        user_id: user.id,
-                        name,
-                        type,
-                        color: getColorByType(type)
-                    }]);
+                // CREATE RPC
+                const { error } = await supabase.rpc('create_wallet_secure', {
+                    p_user_id: user.id,
+                    p_name: name,
+                    p_type: type,
+                    p_color: getColorByType(type)
+                });
                 if (error) throw error;
             }
 
@@ -89,6 +83,7 @@ const Wallets = () => {
             closeModal();
         } catch (error) {
             console.error('Error saving wallet:', error);
+            alert('Error al guardar billetera: ' + error.message);
         } finally {
             setSubmitting(false);
         }
@@ -100,10 +95,10 @@ const Wallets = () => {
 
         try {
             setSubmitting(true);
-            const { error } = await supabase
-                .from('wallets')
-                .delete()
-                .eq('id', editingWallet.id);
+            // DELETE RPC
+            const { error } = await supabase.rpc('delete_wallet_secure', {
+                p_wallet_id: editingWallet.id
+            });
             if (error) throw error;
             fetchWallets();
             closeModal();
