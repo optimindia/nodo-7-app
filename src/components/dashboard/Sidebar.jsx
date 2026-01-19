@@ -11,7 +11,8 @@ import {
     Box,
     Tag,
     X,
-    ShieldCheck
+    ShieldCheck,
+    ShoppingCart
 } from 'lucide-react';
 import { useUserRole } from '../../hooks/useUserRole';
 import { useAuth } from '../../context/AuthContext';
@@ -20,6 +21,7 @@ const menuItems = [
     { id: 'dashboard', icon: LayoutDashboard, label: 'Panel' },
     { id: 'assets', icon: Wallet, label: 'Billeteras' },
     { id: 'analytics', icon: BarChart2, label: 'Analíticas' },
+    { id: 'shopping', icon: ShoppingCart, label: 'Compras' },
     { id: 'goals', icon: Box, label: 'Metas' },
     { id: 'ai-chat', icon: Zap, label: 'Asistente IA' },
     { id: 'categories', icon: Tag, label: 'Categorías' },

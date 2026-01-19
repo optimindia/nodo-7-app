@@ -4,6 +4,7 @@ import { Wallet, Plus, CreditCard, Landmark, Banknote, X, Loader2, Edit2, Trash2
 import { supabase } from '../../lib/supabaseClient';
 import { useAuth } from '../../context/AuthContext';
 import { useDashboardData } from '../../hooks/useDashboardData';
+import RecurringManager from '../../components/recurring/RecurringManager';
 
 const Wallets = () => {
     const { user } = useAuth();
@@ -202,6 +203,9 @@ const Wallets = () => {
                     Nueva Billetera
                 </button>
             </div>
+
+            {/* Recurring Transactions Manager */}
+            <RecurringManager wallets={wallets} />
 
             {loading ? (
                 <div className="flex justify-center py-20"><Loader2 className="animate-spin text-cyan-400 w-8 h-8" /></div>

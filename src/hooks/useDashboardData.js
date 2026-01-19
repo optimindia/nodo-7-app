@@ -51,13 +51,39 @@ export const useDashboardData = (refreshKey = 0) => {
                     .select('*')
                     .eq('user_id', user.id);
 
+                // 5. Fetch Shopping Lists
+                const { data: shoppingData } = await supabase
+                    .from('shopping_lists')
+                    .select('*')
+                    .eq('user_id', user.id)
+                    .eq('status', 'active');
+
+                // 6. Fetch Recurring Templates
+                const { data: recurringData } = await supabase
+                    .from('recurring_templates')
+                    .select('*')
+                    .eq('user_id', user.id)
+                    .eq('active', true);
+
                 if (txData) {
                     setTransactions(txData);
-                    setWallets(walletsData || []);
+                    // Calculate Balances per Wallet
+                    const walletsWithBalance = (walletsData || []).map(wallet => {
+                        const walletTx = txData.filter(tx => tx.wallet_id === wallet.id);
+                        const currentBalance = walletTx.reduce((acc, tx) => {
+                            const amt = Number(tx.amount);
+                            if (tx.type === 'deposit' || tx.type === 'yield') return acc + amt;
+                            if (tx.type === 'withdrawal' || tx.type === 'payment') return acc - amt;
+                            return acc;
+                        }, Number(wallet.initial_balance) || 0);
+                        return { ...wallet, balance: currentBalance };
+                    });
+
+                    setWallets(walletsWithBalance);
                     setGoals(goalsData || []);
 
                     // Calculate Stats
-                    const initialBalanceTotal = (walletsData || []).reduce((acc, w) => acc + (Number(w.initial_balance) || 0), 0);
+                    const globalBalance = walletsWithBalance.reduce((acc, w) => acc + w.balance, 0);
 
                     const txBalance = txData.reduce((acc, tx) => {
                         if (tx.type === 'deposit' || tx.type === 'yield') return acc + Number(tx.amount);
@@ -72,7 +98,7 @@ export const useDashboardData = (refreshKey = 0) => {
 
                     setStats(prev => ({
                         ...prev,
-                        totalBalance: initialBalanceTotal + txBalance, // Add initial balance total
+                        totalBalance: globalBalance,
                         totalProfit: profit,
                         activeVaults: txData.filter(tx => tx.type === 'investment').length
                     }));

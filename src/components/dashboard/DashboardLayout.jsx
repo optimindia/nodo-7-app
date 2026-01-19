@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Sidebar from './Sidebar';
-import { Search, Bell, LogOut, Settings as SettingsIcon, User, X, ChevronDown, CheckCheck, Loader2, Menu } from 'lucide-react';
+import { Search, Bell, LogOut, Settings as SettingsIcon, User, X, ChevronDown, CheckCheck, Loader2, Menu, ShoppingCart } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { supabase } from '../../lib/supabaseClient';
 import { useDashboardData } from '../../hooks/useDashboardData';
 import { useNotifications } from '../../hooks/useNotifications';
+import { useRecurringProcessor } from '../../hooks/useRecurringProcessor';
 import DashboardHome from '../../pages/dashboard/DashboardHome';
 import Settings from '../../pages/dashboard/Settings';
 import Wallets from '../../pages/dashboard/Wallets';
@@ -12,6 +13,7 @@ import Analytics from '../../pages/dashboard/Analytics';
 import Goals from '../../pages/dashboard/Goals';
 import AIChat from '../../pages/dashboard/AIChat';
 import Categories from '../../pages/dashboard/Categories';
+import Shopping from '../../pages/dashboard/Shopping';
 import AdminDashboard from '../../pages/admin/AdminDashboard';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -25,6 +27,10 @@ const DashboardLayout = ({ children, currentView, setCurrentView }) => {
     // Global Data Fetching (Lifted State)
     const { stats, transactions, wallets, goals, loading, formatCurrency } = useDashboardData();
     const { notifications, unreadCount, markAsRead, markAllRead, analyzeAndNotify, addNotification, deleteNotification } = useNotifications(session?.user);
+
+    // Automatic Recurring Processor
+    useRecurringProcessor(session?.user);
+
 
     // Motivation Engine Trigger
     useEffect(() => {
@@ -72,6 +78,7 @@ const DashboardLayout = ({ children, currentView, setCurrentView }) => {
             case 'assets': return <Wallets {...sharedProps} />;
             case 'analytics': return <Analytics />;
             case 'goals': return <Goals {...sharedProps} />;
+            case 'shopping': return <Shopping {...sharedProps} />;
             case 'categories': return <Categories />;
             case 'ai-chat': return <AIChat />;
             case 'settings': return <Settings />;
