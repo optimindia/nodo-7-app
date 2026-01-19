@@ -10,8 +10,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['icon.png', 'logo.png', 'vite.svg'],
       manifest: {
-        name: 'Nodo 7 - Gestión Financiera',
-        short_name: 'Nodo 7',
+        name: 'OptiCash - Gestión Financiera',
+        short_name: 'OptiCash',
         description: 'Control financiero inteligente para tu negocio.',
         theme_color: '#0f172a',
         background_color: '#0f172a',
