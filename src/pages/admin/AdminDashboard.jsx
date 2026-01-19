@@ -29,23 +29,51 @@ const AdminDashboard = () => {
         e.preventDefault();
         setCreateLoading(true);
         try {
-            // BACK TO BASICS: Secure RPC that creates both Auth + Profile + PasswordHash
-            // This is matched with verify_user_custom for login
-            const { error: rpcError } = await supabase.rpc('create_new_user', {
+            // 1. Create User using Temporary Client (so Admin doesn't get logged out)
+            // We need a fresh client instance because .signUp() signs in the user by default
+            const { createClient } = await import('@supabase/supabase-js');
+            const tempSupabase = createClient(
+                import.meta.env.VITE_SUPABASE_URL,
+                import.meta.env.VITE_SUPABASE_ANON_KEY,
+                {
+                    auth: {
+                        persistSession: false, // Critical to not overwrite Admin session
+                        autoRefreshToken: false,
+                        detectSessionInUrl: false
+                    }
+                }
+            );
+
+            const { data: authData, error: authError } = await tempSupabase.auth.signUp({
                 email: newUser.email,
                 password: newUser.password,
-                user_role: newUser.role,
-                user_credits: parseInt(newUser.credits),
-                creator_id: (await supabase.auth.getUser()).data.user.id
             });
 
-            if (rpcError) throw rpcError;
+            if (authError) throw authError;
+            if (!authData.user) throw new Error("No se pudo crear el usuario");
+
+            const newUserId = authData.user.id;
+
+            // 2. Update Profile with Role & Credits (Since Trigger creates it with defaults)
+            // We wait a moment for the Trigger to fire
+            await new Promise(r => setTimeout(r, 1000));
+
+            const { error: updateError } = await supabase
+                .from('profiles')
+                .update({
+                    role: newUser.role,
+                    credits: parseInt(newUser.credits),
+                    created_by: (await supabase.auth.getUser()).data.user.id
+                })
+                .eq('id', newUserId);
+
+            if (updateError) throw new Error("Usuario creado, pero error al asignar rol: " + updateError.message);
 
             // Success
             setIsCreateModalOpen(false);
             setNewUser({ email: '', password: '', role: 'client', credits: 0 });
             refreshData();
-            alert('Usuario creado exitosamente (Modo Blindado) 🚀');
+            alert('Usuario creado exitosamente 🚀');
         } catch (error) {
             console.error("Create user error:", error);
             alert('Error: ' + error.message);

@@ -40,15 +40,6 @@ const Auth = () => {
                 const { error: signInError } = await signIn(email, password);
 
                 if (signInError) {
-                    console.log("Standard login failed, trying Custom Emergency Login...", signInError);
-
-                    // If error is related to DB/Schema (500) or similar, try Custom
-                    const { error: customError } = await customLogin(email, password);
-
-                    if (customError) {
-                        // If both fail, throw the custom error or original
-                        throw customError || signInError;
-                    }
                     // If custom works, we are good (AuthContext updates state)
                 }
             } else {

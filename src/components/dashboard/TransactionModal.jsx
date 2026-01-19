@@ -33,8 +33,7 @@ const TransactionModal = ({ isOpen, onClose, onTransactionAdded, userId, initial
             const targetUserId = user?.id || userId;
             if (!targetUserId) return;
 
-            // USE RPC: Secure Fetch
-            const { data } = await supabase.rpc('get_wallets_secure', { p_user_id: targetUserId });
+            const { data } = await supabase.from('wallets').select('*').eq('user_id', targetUserId);
             if (data) {
                 setWallets(data);
                 if (data.length > 0 && !selectedWallet) setSelectedWallet(data[0].id);
@@ -68,32 +67,32 @@ const TransactionModal = ({ isOpen, onClose, onTransactionAdded, userId, initial
             const finalCategory = category || 'General';
 
             const targetUserId = user?.id || userId;
-            const isDeposit = type === 'deposit';
 
+            // 1. Transaction Operation (Insert/Update)
             let txOperation;
 
+            const payload = {
+                user_id: targetUserId,
+                amount: parseFloat(amount),
+                description: finalDesc,
+                type: type === 'deposit' ? 'deposit' : 'withdrawal',
+                category: finalCategory,
+                date,
+                wallet_id: selectedWallet,
+                goal_id: selectedGoal || null
+            };
+
             if (initialData?.id) {
-                // UPDATE RPC
-                txOperation = await supabase.rpc('update_transaction_secure', {
-                    p_tx_id: initialData.id,
-                    p_amount: parseFloat(amount),
-                    p_type: isDeposit ? 'deposit' : 'withdrawal',
-                    p_description: finalDesc,
-                    p_category: finalCategory,
-                    p_date: date,
-                    p_wallet_id: selectedWallet
-                });
+                // Update
+                txOperation = await supabase
+                    .from('transactions')
+                    .update(payload)
+                    .eq('id', initialData.id);
             } else {
-                // CREATE RPC
-                txOperation = await supabase.rpc('create_transaction_secure', {
-                    p_user_id: targetUserId,
-                    p_wallet_id: selectedWallet,
-                    p_amount: parseFloat(amount),
-                    p_type: isDeposit ? 'deposit' : 'withdrawal',
-                    p_description: finalDesc,
-                    p_category: finalCategory,
-                    p_date: date
-                });
+                // Insert
+                txOperation = await supabase
+                    .from('transactions')
+                    .insert([payload]);
             }
 
             const { error: txError } = txOperation;
@@ -101,15 +100,11 @@ const TransactionModal = ({ isOpen, onClose, onTransactionAdded, userId, initial
 
             // 2. Update Goal (Only on Create & Deposit)
             // Prevent double counting on edits for now
-            if (!initialData?.id && selectedGoal && isDeposit) {
+            if (!initialData?.id && selectedGoal && type === 'deposit') {
                 const goal = goals.find(g => g.id === selectedGoal);
                 if (goal) {
                     const newAmount = (Number(goal.current_amount) || 0) + parseFloat(amount);
-                    // GOAL UPDATE RPC
-                    await supabase.rpc('update_goal_amount_secure', {
-                        p_goal_id: selectedGoal,
-                        p_current_amount: newAmount
-                    });
+                    await supabase.from('goals').update({ current_amount: newAmount }).eq('id', selectedGoal);
                 }
             }
 

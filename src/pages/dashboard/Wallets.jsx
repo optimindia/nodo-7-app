@@ -28,10 +28,11 @@ const Wallets = () => {
     const fetchWallets = async () => {
         try {
             setLoading(true);
-            // USE RPC: Secure Fetch bypassing RLS
-            const { data, error } = await supabase.rpc('get_wallets_secure', {
-                p_user_id: user.id
-            });
+            const { data, error } = await supabase
+                .from('wallets')
+                .select('*')
+                .eq('user_id', user.id)
+                .order('created_at', { ascending: true });
 
             if (error) throw error;
 
@@ -60,22 +61,26 @@ const Wallets = () => {
         setSubmitting(true);
         try {
             if (editingWallet) {
-                // UPDATE RPC
-                const { error } = await supabase.rpc('update_wallet_secure', {
-                    p_wallet_id: editingWallet.id,
-                    p_name: name,
-                    p_type: type,
-                    p_color: getColorByType(type)
-                });
+                // Update
+                const { error } = await supabase
+                    .from('wallets')
+                    .update({
+                        name,
+                        type,
+                        color: getColorByType(type)
+                    })
+                    .eq('id', editingWallet.id);
                 if (error) throw error;
             } else {
-                // CREATE RPC
-                const { error } = await supabase.rpc('create_wallet_secure', {
-                    p_user_id: user.id,
-                    p_name: name,
-                    p_type: type,
-                    p_color: getColorByType(type)
-                });
+                // Create
+                const { error } = await supabase
+                    .from('wallets')
+                    .insert([{
+                        user_id: user.id,
+                        name,
+                        type,
+                        color: getColorByType(type)
+                    }]);
                 if (error) throw error;
             }
 
@@ -95,10 +100,10 @@ const Wallets = () => {
 
         try {
             setSubmitting(true);
-            // DELETE RPC
-            const { error } = await supabase.rpc('delete_wallet_secure', {
-                p_wallet_id: editingWallet.id
-            });
+            const { error } = await supabase
+                .from('wallets')
+                .delete()
+                .eq('id', editingWallet.id);
             if (error) throw error;
             fetchWallets();
             closeModal();
