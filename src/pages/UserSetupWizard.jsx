@@ -32,8 +32,7 @@ const UserSetupWizard = ({ onComplete }) => {
     const [newWallet, setNewWallet] = useState({
         name: '',
         type: 'general',
-        amount: '',
-        color: '#10B981'
+        amount: ''
     });
 
     const [goal, setGoal] = useState({
@@ -44,7 +43,7 @@ const UserSetupWizard = ({ onComplete }) => {
     const handleAddWallet = () => {
         if (!newWallet.name) return;
         setWalletsList([...walletsList, { ...newWallet, id: Date.now() }]);
-        setNewWallet({ name: '', type: 'general', amount: '', color: '#10B981' }); // Reset form
+        setNewWallet({ name: '', type: 'general', amount: '' }); // Reset form
     };
 
     const handleRemoveWallet = (id) => {
@@ -52,10 +51,36 @@ const UserSetupWizard = ({ onComplete }) => {
     };
 
     const handleNext = async () => {
+        // Validation for Wallet Step (Step 2)
+        if (currentStep === 2) {
+            if (walletsList.length === 0) {
+                if (newWallet.name) {
+                    // User filled form but forgot to click "Add" -> Auto-add it
+                    const walletToAdd = { ...newWallet, id: Date.now() };
+                    setWalletsList([walletToAdd]);
+                    // Proceed to next step immediately with this new state effectively
+                    // Note: State updates are async, so we might need to handle this carefully.
+                    // Ideally, we just let the next render pick it up, but for finalize we need it?
+                    // No, finalize is at the end. Here we just go to step 3 (Goals). 
+                    // But wait, if we set state here, it won't be in walletsList immediately for validation?
+                    // Actually, for just moving to step 3 it's fine. The list will be updated for when we eventually reach finalize.
+
+                    // However, let's explicitely add it to a temp variable if we needed to validate, 
+                    // but here we just want to ensure it gets into the list.
+                    setWalletsList(prev => [...prev, walletToAdd]);
+                    setNewWallet({ name: '', type: 'general', amount: '' }); // Reset form
+                } else {
+                    setError("Por favor agrega al menos una billetera para continuar.");
+                    return;
+                }
+            }
+        }
+
         if (currentStep === steps.length - 2) { // Determine final step before 'complete'
             await finalizeSetup();
         } else {
             setCurrentStep(prev => prev + 1);
+            setError(null); // Clear errors on step change
         }
     };
 
@@ -64,40 +89,51 @@ const UserSetupWizard = ({ onComplete }) => {
         setError(null);
 
         try {
-            // 1. Update Profile
-            const { error: profileError } = await supabase
-                .from('profiles')
-                .update({
-                    full_name: profileData.full_name,
-                    username: profileData.username,
-                    bio: profileData.bio,
-                    currency: currency,
-                    has_completed_setup: true,
-                    updated_at: new Date()
-                })
-                .eq('id', user.id);
+            console.log('Finalizing setup - Starting...');
+            console.log('User ID:', user.id);
+            console.log('Wallets to create:', walletsList);
 
-            if (profileError) throw profileError;
-
-            // 2. Create Wallets (Loop through list)
+            // 1. Create Wallets (Loop through list)
             if (walletsList.length > 0) {
+                const getColorByType = (type) => {
+                    if (type === 'bank') return 'purple';
+                    if (type === 'crypto') return 'cyan';
+                    if (type === 'cash') return 'green';
+                    return 'blue';
+                };
+
                 for (const walletItem of walletsList) {
+                    // Safe parsing for amount
+                    const rawAmount = walletItem.amount ? String(walletItem.amount).replace(/,/g, '') : '';
+                    const initialBalance = rawAmount ? parseFloat(rawAmount) : 0;
+
+                    console.log('Saving Wallet:', {
+                        name: walletItem.name,
+                        type: walletItem.type,
+                        initialBalance
+                    });
+
                     // Insert Wallet with Initial Balance
-                    const { error: walletError } = await supabase
+                    const { data, error: walletError } = await supabase
                         .from('wallets')
                         .insert([{
                             user_id: user.id,
                             name: walletItem.name,
-                            color: walletItem.color,
+                            color: getColorByType(walletItem.type),
                             type: walletItem.type,
-                            initial_balance: parseFloat(walletItem.amount || 0)
-                        }]);
+                            initial_balance: initialBalance
+                        }])
+                        .select();
 
-                    if (walletError) throw walletError;
+                    if (walletError) {
+                        console.error('Wallet Creation Error:', walletError);
+                        throw walletError;
+                    }
+                    console.log('Wallet Created:', data);
                 }
             }
 
-            // 3. Create Goal (Optional)
+            // 2. Create Goal (Optional)
             if (goal.title && goal.target_amount) {
                 const { error: goalError } = await supabase
                     .from('goals')
@@ -113,6 +149,24 @@ const UserSetupWizard = ({ onComplete }) => {
                     }]);
 
                 if (goalError) throw goalError;
+            }
+
+            // 3. Update Profile (LAST STEP)
+            const { error: profileError } = await supabase
+                .from('profiles')
+                .update({
+                    full_name: profileData.full_name,
+                    username: profileData.username,
+                    bio: profileData.bio,
+                    currency: currency,
+                    has_completed_setup: true,
+                    updated_at: new Date()
+                })
+                .eq('id', user.id);
+
+            if (profileError) {
+                console.error('Profile Update Error:', profileError);
+                throw profileError;
             }
 
             // Success! Move to completion screen
