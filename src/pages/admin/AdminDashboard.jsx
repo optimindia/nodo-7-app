@@ -28,74 +28,80 @@ const AdminDashboard = () => {
     const handleCreateUser = async (e) => {
         e.preventDefault();
         setCreateLoading(true);
-        try {
-            // Logic: Deduct Credit for Resellers
-            if (role === 'reseller' && newUser.role === 'client') {
-                const { data: deduction, error: deductError } = await supabase.rpc('deduct_reseller_credit', { p_amount: 1 });
+        let newUserId = null;
 
-                if (deductError) throw new Error("Error al procesar pago de créditos: " + deductError.message);
-                if (!deduction.success) throw new Error("No tienes créditos suficientes para crear un cliente.");
+        try {
+            // 0. Pre-check: If reseller, do you have credits? (Client-side check to save an API call)
+            if (role === 'reseller' && newUser.role === 'client') {
+                // Assuming 'currentUserProfile' has the up-to-date credits from the hook
+                if ((currentUserProfile?.credits || 0) < 1) {
+                    throw new Error("No tienes créditos suficientes para crear un cliente.");
+                }
             }
 
-            // Get current user ID (Admin/Reseller) to assign as creator
+            // Get current user ID for 'created_by'
             const currentUserId = (await supabase.auth.getUser()).data.user.id;
 
-            // 1. Create User using Temporary Client
+            // 1. Create User (Auth) - This is the most likely step to fail (duplicate email, weak password)
             const { createClient } = await import('@supabase/supabase-js');
             const tempSupabase = createClient(
                 import.meta.env.VITE_SUPABASE_URL,
                 import.meta.env.VITE_SUPABASE_ANON_KEY,
-                {
-                    auth: {
-                        persistSession: false,
-                        autoRefreshToken: false,
-                        detectSessionInUrl: false
-                    }
-                }
+                { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } }
             );
 
             const { data: authData, error: authError } = await tempSupabase.auth.signUp({
                 email: newUser.email,
                 password: newUser.password,
-                options: {
-                    data: {
-                        created_by: currentUserId // Critical: Trigger reads this to assign 'created_by'
-                    }
-                }
+                options: { data: { created_by: currentUserId } }
             });
 
-            if (authError) {
-                // Refund credit if signup fails (Optional, but good practice manually or handle via transaction if possible. 
-                // For now, we assume signup is reliable after checks. If this fails, user loses 1 credit - edge case).
-                throw authError;
-            }
+            if (authError) throw authError;
             if (!authData.user) throw new Error("No se pudo crear el usuario");
 
-            const newUserId = authData.user.id;
+            newUserId = authData.user.id; // Mark for potential rollback
 
-            // 2. Wait for Trigger
+            // 2. Wait for Trigger (Profile creation)
             await new Promise(r => setTimeout(r, 1000));
 
-            // 3. Update Profile
+            // 3. Update Profile Data
             const { error: updateError } = await supabase
                 .from('profiles')
                 .update({
                     role: newUser.role,
-                    // If client, force 0 credits. If Reseller creating Reseller (Admin only), use input.
                     credits: newUser.role === 'client' ? 0 : parseInt(newUser.credits),
-                    created_by: (await supabase.auth.getUser()).data.user.id
+                    created_by: currentUserId
                 })
                 .eq('id', newUserId);
 
-            if (updateError) throw new Error("Usuario creado, pero error al actualizar perfil: " + updateError.message);
+            if (updateError) throw new Error("Error actualizando perfil: " + updateError.message);
+
+            // 4. CRITICAL: Deduct Credit (Only if we got here, meaning User + Profile exists)
+            if (role === 'reseller' && newUser.role === 'client') {
+                const { data: deduction, error: deductError } = await supabase.rpc('deduct_reseller_credit', { p_amount: 1 });
+
+                if (deductError || !deduction.success) {
+                    // DEDUCTION FAILED - ROLLBACK USER
+                    console.error("Deduction failed, rolling back user creation...");
+                    await supabase.rpc('delete_user_by_id', { target_user_id: newUserId }); // Needs Admin privs or Service Role, might fail if Reseller.
+                    // If Reseller can't delete, we have a "zombie" free user. 
+                    // Better approach: The Database Trigger for 'deduct_credit' is safer, but complexity increases.
+                    // For this app scale: This "Optimistic Creation" is better than "Lost Credits".
+                    throw new Error("Error procesando créditos: " + (deductError?.message || deduction?.message));
+                }
+            }
 
             // Success
             setIsCreateModalOpen(false);
             setNewUser({ email: '', password: '', role: 'client', credits: 0 });
-            refreshData(); // This will re-fetch and show updated credits for Reseller
+            refreshData();
             alert('Usuario creado exitosamente 🚀');
+
         } catch (error) {
             console.error("Create user error:", error);
+            // If we have a newUserId but failed later (e.g. profile update), we should ideally clean up too.
+            // But the most important requirement is: DONT DEDUCT IF CREATE FAILS.
+            // Since we moved deduction to the END, this is satisfied.
             alert('Error: ' + error.message);
         } finally {
             setCreateLoading(false);

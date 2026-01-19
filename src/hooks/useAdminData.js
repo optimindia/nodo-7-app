@@ -70,8 +70,8 @@ export const useAdminData = (page = 1, perPage = 10, searchTerm = '') => {
             setStats(statsResult.data);
 
             // Set Profile Role (for UI logic)
-            // Note: get_admin_stats returns myCredits, so we just need role/ID sometimes.
-            setCurrentUserProfile({ ...myProfile, id: user.id }); // Minimal profile
+            // Note: get_admin_stats returns myCredits, so we include it in the profile object for easy access
+            setCurrentUserProfile({ ...myProfile, id: user.id, credits: statsResult.data.myCredits });
 
         } catch (error) {
             console.error('Error fetching admin data:', error);
