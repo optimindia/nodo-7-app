@@ -19,6 +19,7 @@ const Wallets = () => {
     // Form inputs
     const [name, setName] = useState('');
     const [type, setType] = useState('general');
+    const [initialBalance, setInitialBalance] = useState(''); // New State
     const [submitting, setSubmitting] = useState(false);
 
     useEffect(() => {
@@ -36,16 +37,17 @@ const Wallets = () => {
 
             if (error) throw error;
 
-            // Calculate balances locally (unchanged logic)
+            // Calculate balances locally
             const walletsWithBalance = data.map(w => {
                 const walletTx = transactions.filter(tx => tx.wallet_id === w.id);
-                const balance = walletTx.reduce((acc, tx) => {
+                const txBalance = walletTx.reduce((acc, tx) => {
                     const amt = Number(tx.amount);
                     if (tx.type === 'deposit' || tx.type === 'yield') return acc + amt;
                     if (tx.type === 'withdrawal' || tx.type === 'payment') return acc - amt;
                     return acc;
                 }, 0);
-                return { ...w, balance };
+                // Add initial_balance to transaction balance
+                return { ...w, balance: (Number(w.initial_balance) || 0) + txBalance };
             });
 
             setWallets(walletsWithBalance);
@@ -67,6 +69,7 @@ const Wallets = () => {
                     .update({
                         name,
                         type,
+                        initial_balance: parseFloat(initialBalance || 0),
                         color: getColorByType(type)
                     })
                     .eq('id', editingWallet.id);
@@ -79,6 +82,7 @@ const Wallets = () => {
                         user_id: user.id,
                         name,
                         type,
+                        initial_balance: parseFloat(initialBalance || 0),
                         color: getColorByType(type)
                     }]);
                 if (error) throw error;
@@ -118,6 +122,7 @@ const Wallets = () => {
         setEditingWallet(null);
         setName('');
         setType('general');
+        setInitialBalance('');
         setIsModalOpen(true);
     };
 
@@ -125,6 +130,7 @@ const Wallets = () => {
         setEditingWallet(wallet);
         setName(wallet.name);
         setType(wallet.type);
+        setInitialBalance(wallet.initial_balance || '');
         setIsModalOpen(true);
     };
 
@@ -241,6 +247,20 @@ const Wallets = () => {
                                         className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-cyan-500/50 outline-none"
                                         required
                                     />
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-sm text-white/60">Saldo Inicial (Base)</label>
+                                    <div className="relative">
+                                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-white/40 font-bold">$</span>
+                                        <input
+                                            type="number"
+                                            value={initialBalance}
+                                            onChange={e => setInitialBalance(e.target.value)}
+                                            placeholder="0.00"
+                                            className="w-full bg-white/5 border border-white/10 rounded-xl pl-8 pr-4 py-3 text-white focus:border-cyan-500/50 outline-none"
+                                        />
+                                    </div>
+                                    <p className="text-xs text-white/30">Monto base de la cuenta, sin contar transacciones.</p>
                                 </div>
                                 <div className="space-y-2">
                                     <label className="text-sm text-white/60">Tipo</label>

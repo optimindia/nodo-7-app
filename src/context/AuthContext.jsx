@@ -11,19 +11,27 @@ export const AuthProvider = ({ children }) => {
     const [session, setSession] = useState(null);
     const [loading, setLoading] = useState(true);
     const [isBlocked, setIsBlocked] = useState(false);
+    const [hasCompletedSetup, setHasCompletedSetup] = useState(true); // Default true to avoid flickering wizard if check fails/delays, will update on check
 
     const checkUserStatus = async (userId) => {
         try {
             const { data, error } = await supabase
                 .from('profiles')
-                .select('subscription_status')
+                .select('subscription_status, has_completed_setup')
                 .eq('id', userId)
                 .single();
 
-            if (data?.subscription_status === 'inactive') {
-                setIsBlocked(true);
-            } else {
-                setIsBlocked(false);
+            if (data) {
+                if (data.subscription_status === 'inactive') {
+                    setIsBlocked(true);
+                } else {
+                    setIsBlocked(false);
+                }
+
+                // If has_completed_setup is explicitly false, set it. 
+                // If it's null (new col) or true, assume true for now to be safe, OR force setup?
+                // Let's force setup if it's strictly false.
+                setHasCompletedSetup(data.has_completed_setup === true);
             }
         } catch (err) {
             console.error("Error checking user status:", err);
@@ -72,7 +80,9 @@ export const AuthProvider = ({ children }) => {
         signIn,
         signOut,
         loading,
-        isBlocked
+        isBlocked,
+        hasCompletedSetup,
+        setHasCompletedSetup
     };
 
     return (

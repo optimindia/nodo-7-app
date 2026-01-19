@@ -74,7 +74,6 @@ const DashboardLayout = ({ children, currentView, setCurrentView }) => {
             case 'goals': return <Goals {...sharedProps} />;
             case 'categories': return <Categories />;
             case 'ai-chat': return <AIChat />;
-            case 'ai-chat': return <AIChat />;
             case 'settings': return <Settings />;
             case 'admin': return <AdminDashboard />;
             default: return <DashboardHome {...sharedProps} />;

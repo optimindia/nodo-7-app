@@ -10,9 +10,13 @@ import DashboardHome from './pages/dashboard/DashboardHome';
 import Settings from './pages/dashboard/Settings';
 import Wallets from './pages/dashboard/Wallets';
 import Analytics from './pages/dashboard/Analytics';
+import Goals from './pages/dashboard/Goals';
+import AIChat from './pages/dashboard/AIChat';
+import Categories from './pages/dashboard/Categories';
+import UserSetupWizard from './pages/UserSetupWizard';
 
 const AppContent = () => {
-  const { session, isBlocked } = useAuth(); // Destructure isBlocked
+  const { session, isBlocked, hasCompletedSetup } = useAuth(); // Destructure hasCompletedSetup
   const [showAuth, setShowAuth] = useState(false);
   const [currentView, setCurrentView] = useState('dashboard'); // Simple routing state
 
@@ -21,19 +25,28 @@ const AppContent = () => {
     return <BlockedAccount />;
   }
 
-  // Priority 2: If logged in (and not blocked), show Dashboard
+  // Priority 2: Setup Wizard (Logged in but setup not complete)
+  // Ensure we check strict false (it defaults to true initially in context until loaded, so it won't flash)
+  if (session && hasCompletedSetup === false) {
+    return <UserSetupWizard onComplete={() => window.location.reload()} />;
+  }
+
+  // Priority 3: Dashboard (Logged in & Setup Complete)
   if (session) {
     return (
       <DashboardLayout currentView={currentView} setCurrentView={setCurrentView}>
         {currentView === 'dashboard' && <DashboardHome />}
         {currentView === 'assets' && <Wallets />}
         {currentView === 'analytics' && <Analytics />}
+        {currentView === 'goals' && <Goals />}
+        {currentView === 'ai-chat' && <AIChat />}
+        {currentView === 'categories' && <Categories />}
         {currentView === 'settings' && <Settings />}
       </DashboardLayout>
     );
   }
 
-  // If showing auth (after onboarding or via skip)
+  // Rest of auth flow...
   if (showAuth) {
     return (
       <Layout>
@@ -42,7 +55,6 @@ const AppContent = () => {
     );
   }
 
-  // Default: Onboarding
   return (
     <Layout>
       <Onboarding onComplete={() => setShowAuth(true)} />

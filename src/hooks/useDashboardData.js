@@ -57,7 +57,9 @@ export const useDashboardData = (refreshKey = 0) => {
                     setGoals(goalsData || []);
 
                     // Calculate Stats
-                    const balance = txData.reduce((acc, tx) => {
+                    const initialBalanceTotal = (walletsData || []).reduce((acc, w) => acc + (Number(w.initial_balance) || 0), 0);
+
+                    const txBalance = txData.reduce((acc, tx) => {
                         if (tx.type === 'deposit' || tx.type === 'yield') return acc + Number(tx.amount);
                         if (tx.type === 'withdrawal') return acc - Number(tx.amount);
                         if (tx.type === 'payment') return acc - Number(tx.amount);
@@ -70,7 +72,7 @@ export const useDashboardData = (refreshKey = 0) => {
 
                     setStats(prev => ({
                         ...prev,
-                        totalBalance: balance,
+                        totalBalance: initialBalanceTotal + txBalance, // Add initial balance total
                         totalProfit: profit,
                         activeVaults: txData.filter(tx => tx.type === 'investment').length
                     }));
