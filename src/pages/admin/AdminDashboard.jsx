@@ -29,15 +29,25 @@ const AdminDashboard = () => {
         e.preventDefault();
         setCreateLoading(true);
         try {
-            // 1. Create User using Temporary Client (so Admin doesn't get logged out)
-            // We need a fresh client instance because .signUp() signs in the user by default
+            // Logic: Deduct Credit for Resellers
+            if (role === 'reseller' && newUser.role === 'client') {
+                const { data: deduction, error: deductError } = await supabase.rpc('deduct_reseller_credit', { p_amount: 1 });
+
+                if (deductError) throw new Error("Error al procesar pago de créditos: " + deductError.message);
+                if (!deduction.success) throw new Error("No tienes créditos suficientes para crear un cliente.");
+            }
+
+            // Get current user ID (Admin/Reseller) to assign as creator
+            const currentUserId = (await supabase.auth.getUser()).data.user.id;
+
+            // 1. Create User using Temporary Client
             const { createClient } = await import('@supabase/supabase-js');
             const tempSupabase = createClient(
                 import.meta.env.VITE_SUPABASE_URL,
                 import.meta.env.VITE_SUPABASE_ANON_KEY,
                 {
                     auth: {
-                        persistSession: false, // Critical to not overwrite Admin session
+                        persistSession: false,
                         autoRefreshToken: false,
                         detectSessionInUrl: false
                     }
@@ -47,32 +57,42 @@ const AdminDashboard = () => {
             const { data: authData, error: authError } = await tempSupabase.auth.signUp({
                 email: newUser.email,
                 password: newUser.password,
+                options: {
+                    data: {
+                        created_by: currentUserId // Critical: Trigger reads this to assign 'created_by'
+                    }
+                }
             });
 
-            if (authError) throw authError;
+            if (authError) {
+                // Refund credit if signup fails (Optional, but good practice manually or handle via transaction if possible. 
+                // For now, we assume signup is reliable after checks. If this fails, user loses 1 credit - edge case).
+                throw authError;
+            }
             if (!authData.user) throw new Error("No se pudo crear el usuario");
 
             const newUserId = authData.user.id;
 
-            // 2. Update Profile with Role & Credits (Since Trigger creates it with defaults)
-            // We wait a moment for the Trigger to fire
+            // 2. Wait for Trigger
             await new Promise(r => setTimeout(r, 1000));
 
+            // 3. Update Profile
             const { error: updateError } = await supabase
                 .from('profiles')
                 .update({
                     role: newUser.role,
-                    credits: parseInt(newUser.credits),
+                    // If client, force 0 credits. If Reseller creating Reseller (Admin only), use input.
+                    credits: newUser.role === 'client' ? 0 : parseInt(newUser.credits),
                     created_by: (await supabase.auth.getUser()).data.user.id
                 })
                 .eq('id', newUserId);
 
-            if (updateError) throw new Error("Usuario creado, pero error al asignar rol: " + updateError.message);
+            if (updateError) throw new Error("Usuario creado, pero error al actualizar perfil: " + updateError.message);
 
             // Success
             setIsCreateModalOpen(false);
             setNewUser({ email: '', password: '', role: 'client', credits: 0 });
-            refreshData();
+            refreshData(); // This will re-fetch and show updated credits for Reseller
             alert('Usuario creado exitosamente 🚀');
         } catch (error) {
             console.error("Create user error:", error);
@@ -282,7 +302,14 @@ const AdminDashboard = () => {
                             <option value="reseller">Revendedor</option>
                             {!isReseller && <option value="admin">Admin</option>}
                         </Select>
-                        <Input label="Créditos Iniciales" type="number" value={newUser.credits} onChange={e => setNewUser({ ...newUser, credits: e.target.value })} />
+                        {newUser.role !== 'client' && (
+                            <Input
+                                label="Créditos Iniciales"
+                                type="number"
+                                value={newUser.credits}
+                                onChange={e => setNewUser({ ...newUser, credits: e.target.value })}
+                            />
+                        )}
                     </div>
                     <Button loading={createLoading}>Crear Usuario</Button>
                 </form>

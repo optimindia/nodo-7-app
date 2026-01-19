@@ -2,6 +2,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import Layout from './components/Layout';
 import Onboarding from './pages/Onboarding';
 import Auth from './pages/Auth';
+import BlockedAccount from './pages/BlockedAccount'; // Import Blocked Screen
 import { useState } from 'react';
 
 import DashboardLayout from './components/dashboard/DashboardLayout';
@@ -11,11 +12,16 @@ import Wallets from './pages/dashboard/Wallets';
 import Analytics from './pages/dashboard/Analytics';
 
 const AppContent = () => {
-  const { session } = useAuth();
+  const { session, isBlocked } = useAuth(); // Destructure isBlocked
   const [showAuth, setShowAuth] = useState(false);
   const [currentView, setCurrentView] = useState('dashboard'); // Simple routing state
 
-  // If logged in, show Dashboard with routing
+  // Priority 1: If Blocked, show Blocked Screen
+  if (isBlocked) {
+    return <BlockedAccount />;
+  }
+
+  // Priority 2: If logged in (and not blocked), show Dashboard
   if (session) {
     return (
       <DashboardLayout currentView={currentView} setCurrentView={setCurrentView}>

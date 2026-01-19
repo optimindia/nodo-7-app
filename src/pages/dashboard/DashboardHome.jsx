@@ -291,7 +291,7 @@ const DashboardHome = ({ searchQuery: globalSearchQuery, stats, transactions, wa
                                                 animate={{ opacity: 1, y: 0, scale: 1 }}
                                                 exit={{ opacity: 0, scale: 0.95, transition: { duration: 0.2 } }}
                                                 whileHover={{ scale: 1.01, backgroundColor: 'rgba(255,255,255,0.08)' }}
-                                                className="flex items-center justify-between p-5 rounded-3xl bg-white/5 border border-white/5 transition-all group cursor-default relative overflow-hidden"
+                                                className="relative p-5 rounded-3xl bg-white/5 border border-white/5 transition-all group cursor-default overflow-hidden"
                                             >
                                                 {/* Wallet Color Indicator Strip */}
                                                 {wallet && (
@@ -301,60 +301,93 @@ const DashboardHome = ({ searchQuery: globalSearchQuery, stats, transactions, wa
                                                     />
                                                 )}
 
-                                                <div className="flex items-center gap-5 pl-2">
-                                                    {/* Icon Box */}
-                                                    <div className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all shadow-lg ${isIncome
-                                                        ? 'bg-emerald-500/10 text-emerald-400 shadow-emerald-500/10'
-                                                        : 'bg-rose-500/10 text-rose-400 shadow-rose-500/10'
-                                                        }`}>
-                                                        <ArrowUpRight className={`w-7 h-7 stroke-[2.5px] ${!isIncome ? 'rotate-45' : 'rotate-[135deg]'}`} />
-                                                    </div>
+                                                <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-0 justify-between relative z-10 pl-2">
 
-                                                    {/* Info */}
-                                                    <div>
-                                                        <div className="text-lg font-bold text-white flex items-center gap-2">
-                                                            {tx.description || tx.category || (isIncome ? 'Ingreso' : 'Gasto')}
+                                                    {/* LEFT SIDE: Icon + Info */}
+                                                    <div className="flex items-start gap-4">
+                                                        {/* Icon */}
+                                                        <div className={`w-12 h-12 sm:w-14 sm:h-14 shrink-0 rounded-2xl flex items-center justify-center shadow-lg ${isIncome
+                                                            ? 'bg-emerald-500/10 text-emerald-400 shadow-emerald-500/10'
+                                                            : 'bg-rose-500/10 text-rose-400 shadow-rose-500/10'
+                                                            }`}>
+                                                            <ArrowUpRight className={`w-6 h-6 sm:w-7 sm:h-7 stroke-[2.5px] ${!isIncome ? 'rotate-45' : 'rotate-[135deg]'}`} />
                                                         </div>
 
-                                                        <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-                                                            <span className={`text-[10px] px-2 py-0.5 rounded-md font-bold uppercase tracking-wide border ${isIncome ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-rose-500/10 border-rose-500/20 text-rose-400'
-                                                                }`}>
-                                                                {tx.type === 'deposit' ? 'Ingreso' : tx.type === 'yield' ? 'Rendimiento' : 'Gasto'}
-                                                            </span>
+                                                        {/* Content */}
+                                                        <div className="flex-1 min-w-0">
+                                                            {/* Title Row */}
+                                                            <div className="flex items-start justify-between gap-4">
+                                                                <div className="text-base sm:text-lg font-bold text-white truncate break-words">
+                                                                    {tx.description || tx.category || (isIncome ? 'Ingreso' : 'Gasto')}
+                                                                </div>
 
-                                                            {wallet && (
-                                                                <span className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-md font-bold uppercase tracking-wide border bg-white/5 border-white/10 text-white/60">
-                                                                    <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: wallet.color }} />
-                                                                    {wallet.name}
+                                                                {/* MOBILE ONLY: Amount */}
+                                                                <span className={`sm:hidden text-lg font-bold tabular-nums tracking-tight whitespace-nowrap ${isIncome ? 'text-emerald-400' : 'text-white'
+                                                                    }`}>
+                                                                    {isIncome ? '+' : '-'}{formatCurrency(tx.amount)}
                                                                 </span>
-                                                            )}
+                                                            </div>
 
-                                                            {goal && (
-                                                                <span className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-md font-bold uppercase tracking-wide border bg-purple-500/10 border-purple-500/20 text-purple-400">
-                                                                    🎯 {goal.title}
+                                                            {/* Badges Row - Wrap on mobile */}
+                                                            <div className="flex flex-wrap items-center gap-2 mt-2">
+                                                                <span className={`text-[10px] px-2 py-0.5 rounded-md font-bold uppercase tracking-wide border ${isIncome ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-rose-500/10 border-rose-500/20 text-rose-400'
+                                                                    }`}>
+                                                                    {tx.type === 'deposit' ? 'Ingreso' : tx.type === 'yield' ? 'Rendimiento' : 'Gasto'}
                                                                 </span>
-                                                            )}
 
-                                                            <span className="text-xs text-white/30 font-medium ml-1">
+                                                                {wallet && (
+                                                                    <span className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-md font-bold uppercase tracking-wide border bg-white/5 border-white/10 text-white/60">
+                                                                        <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: wallet.color }} />
+                                                                        {wallet.name}
+                                                                    </span>
+                                                                )}
+
+                                                                {goal && (
+                                                                    <span className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-md font-bold uppercase tracking-wide border bg-purple-500/10 border-purple-500/20 text-purple-400">
+                                                                        🎯 {goal.title}
+                                                                    </span>
+                                                                )}
+                                                            </div>
+
+                                                            {/* Date - Below badges on mobile */}
+                                                            <div className="mt-2 sm:hidden text-xs text-white/30 font-medium">
+                                                                {new Date(tx.date || tx.created_at).toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' })}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* RIGHT SIDE (Desktop): Amount + Date + Actions */}
+                                                    <div className="flex items-center justify-between sm:justify-end gap-6 sm:pl-0 mt-2 sm:mt-0 pt-3 sm:pt-0 border-t border-white/10 sm:border-0">
+                                                        {/* Actions (Mobile: Left aligned in footer / Desktop: Right aligned) */}
+                                                        <div className={`sm:hidden flex items-center gap-2`}>
+                                                            <button onClick={() => handleEdit(tx)} className="p-2 rounded-lg bg-white/5 text-white hover:bg-cyan-500/20 hover:text-cyan-400 transition-colors">
+                                                                <Pencil className="w-4 h-4" />
+                                                            </button>
+                                                            <button onClick={() => handleDelete(tx.id)} className="p-2 rounded-lg bg-white/5 text-white hover:bg-rose-500/20 hover:text-rose-400 transition-colors">
+                                                                <Trash2 className="w-4 h-4" />
+                                                            </button>
+                                                        </div>
+
+                                                        {/* Desktop Content Group */}
+                                                        <div className="hidden sm:flex items-center gap-6">
+                                                            <span className="text-xs text-white/30 font-medium">
                                                                 {new Date(tx.date || tx.created_at).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}
                                                             </span>
+
+                                                            <span className={`text-xl font-bold tabular-nums tracking-tight ${isIncome ? 'text-emerald-400' : 'text-white'
+                                                                }`}>
+                                                                {isIncome ? '+' : '-'}{formatCurrency(tx.amount)}
+                                                            </span>
+
+                                                            <div className={`flex items-center gap-2 transition-all transform ${isSearching || showAllHistory ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-4 group-hover:opacity-100 group-hover:translate-x-0'}`}>
+                                                                <button onClick={() => handleEdit(tx)} className="p-2.5 rounded-xl bg-white/10 text-white hover:bg-cyan-500/20 hover:text-cyan-400 transition-colors">
+                                                                    <Pencil className="w-4 h-4" />
+                                                                </button>
+                                                                <button onClick={() => handleDelete(tx.id)} className="p-2.5 rounded-xl bg-white/10 text-white hover:bg-rose-500/20 hover:text-rose-400 transition-colors">
+                                                                    <Trash2 className="w-4 h-4" />
+                                                                </button>
+                                                            </div>
                                                         </div>
-                                                    </div>
-                                                </div>
-
-                                                <div className="flex items-center gap-6">
-                                                    <span className={`text-xl font-bold tabular-nums tracking-tight ${isIncome ? 'text-emerald-400' : 'text-white'
-                                                        }`}>
-                                                        {isIncome ? '+' : '-'}{formatCurrency(tx.amount)}
-                                                    </span>
-
-                                                    <div className={`flex items-center gap-2 transition-all transform ${isSearching || showAllHistory ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-4 group-hover:opacity-100 group-hover:translate-x-0'}`}>
-                                                        <button onClick={() => handleEdit(tx)} className="p-2.5 rounded-xl bg-white/10 text-white hover:bg-cyan-500/20 hover:text-cyan-400 transition-colors">
-                                                            <Pencil className="w-4 h-4" />
-                                                        </button>
-                                                        <button onClick={() => handleDelete(tx.id)} className="p-2.5 rounded-xl bg-white/10 text-white hover:bg-rose-500/20 hover:text-rose-400 transition-colors">
-                                                            <Trash2 className="w-4 h-4" />
-                                                        </button>
                                                     </div>
                                                 </div>
                                             </motion.div>
