@@ -49,7 +49,7 @@ export const useAdminData = (page = 1, perPage = 10, searchTerm = '') => {
             // Execute Promises
             const [usersResult, statsResult] = await Promise.all([
                 query,
-                supabase.rpc('get_admin_stats')
+                supabase.rpc('get_admin_stats_secure', { p_user_id: user.id })
             ]);
 
             if (usersResult.error) throw usersResult.error;
