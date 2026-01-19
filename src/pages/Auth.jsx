@@ -176,11 +176,11 @@ const Auth = () => {
                                 animate={{ opacity: 1, scale: 1 }}
                                 className="p-6 rounded-2xl bg-white/5 border border-white/10"
                             >
-                                <h3 className="text-xl font-bold text-white mb-2">Acceso Exclusivo</h3>
-                                <p className="text-white/60 text-sm mb-4">
-                                    NODO 7 es una plataforma privada. Para obtener tu acceso, contacta con nuestro equipo de soporte.
-                                </p>
-                                <a
+                                <div className="mt-6 bg-white/5 p-4 rounded-lg border border-white/10 backdrop-blur-sm">
+                                    <p className="text-gray-300 text-sm text-center">
+                                        OptiCash es una plataforma privada. Para obtener tu acceso, contacta con nuestro equipo de soporte.
+                                    </p>
+                                </div>    <a
                                     href="https://wa.me/5492616027055?text=Hola,%20quiero%20solicitar%20acceso%20a%20NODO%207"
                                     target="_blank"
                                     rel="noopener noreferrer"
