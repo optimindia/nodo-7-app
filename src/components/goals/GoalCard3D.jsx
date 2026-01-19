@@ -78,7 +78,6 @@ const GoalCard3D = ({ goal, onEdit, onQuickAdd }) => {
     const isUrgent = deadlineStatus === 'critical' || deadlineStatus === 'warning';
 
     // --- COLOR MAPPING (Static Classes for Tailwind) ---
-    // This looks redundant but is necessary for Tailwind to pick up the classes at build time.
     const colorMap = {
         emerald: {
             text: 'text-emerald-400',
