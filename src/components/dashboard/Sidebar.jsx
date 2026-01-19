@@ -38,13 +38,12 @@ const Sidebar = ({ currentView, setCurrentView, isOpen, onClose }) => {
         <div className="flex flex-col h-full">
             {/* Logo Area */}
             <div className="p-8 pb-4 flex justify-between items-center">
-                <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-400 to-blue-600 flex items-center justify-center shadow-[0_0_20px_rgba(34,211,238,0.3)]">
-                        <Zap className="text-white w-6 h-6 fill-white" />
-                    </div>
-                    <span className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-white/60">
-                        NODO 7
-                    </span>
+                <div className="flex items-center justify-center w-full">
+                    <img
+                        src="/logo.png"
+                        alt="OptiCash Logo"
+                        className="h-12 w-auto object-contain drop-shadow-[0_0_15px_rgba(34,211,238,0.5)]"
+                    />
                 </div>
                 {/* Mobile Close Button */}
                 <button
