@@ -11,7 +11,15 @@ import { Wallet, Users, ArrowUpRight, TrendingUp, Loader2, Plus, Pencil, Trash2 
 import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
 import { supabase } from '../../lib/supabaseClient';
 
-const DashboardHome = ({ searchQuery: globalSearchQuery, stats, transactions, wallets, goals, loading, formatCurrency }) => {
+const DashboardHome = ({
+    searchQuery: globalSearchQuery,
+    stats = { totalBalance: 0 },
+    transactions = [],
+    wallets = [],
+    goals = [],
+    loading = false,
+    formatCurrency
+}) => {
     // Props are now passed from Layout to avoid double fetching and enable global access
 
     // We can keep these local UI states
@@ -30,6 +38,10 @@ const DashboardHome = ({ searchQuery: globalSearchQuery, stats, transactions, wa
 
     // View Mode
     const [showAllHistory, setShowAllHistory] = useState(false);
+
+    // NEW: Time Range State (Moved to top to fix Hook Rule)
+    const [timeRange, setTimeRange] = useState('this_month'); // 'this_month', 'last_month', 'last_30_days', 'this_week', 'today', 'year'
+    const [statView, setStatView] = useState('expense'); // 'expense' | 'income'
 
     const handleTransactionSuccess = () => {
         // Trigger generic refresh? 
@@ -107,6 +119,92 @@ const DashboardHome = ({ searchQuery: globalSearchQuery, stats, transactions, wa
         return matchesSearch && matchesType && matchesWallet && matchesMinAmount && matchesMaxAmount && matchesDate;
     });
 
+    // Helper: Calculate Stats based on Time Range
+    const calculateStats = (txs, range) => {
+        const now = new Date();
+        let currentStart, currentEnd, prevStart, prevEnd;
+
+        // 1. Define Date Ranges
+        if (range === 'this_month') {
+            currentStart = new Date(now.getFullYear(), now.getMonth(), 1);
+            currentEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+            prevStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+            prevEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
+        } else if (range === 'last_month') {
+            currentStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+            currentEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
+            prevStart = new Date(now.getFullYear(), now.getMonth() - 2, 1);
+            prevEnd = new Date(now.getFullYear(), now.getMonth() - 1, 0, 23, 59, 59);
+        } else if (range === 'last_30_days') {
+            currentEnd = now;
+            currentStart = new Date(now);
+            currentStart.setDate(now.getDate() - 30);
+            prevEnd = new Date(currentStart);
+            prevStart = new Date(prevEnd);
+            prevStart.setDate(prevEnd.getDate() - 30);
+        } else if (range === 'this_week') {
+            const day = now.getDay() || 7; // Mon=1, Sun=7
+            currentStart = new Date(now);
+            currentStart.setHours(0, 0, 0, 0);
+            currentStart.setDate(now.getDate() - day + 1); // Monday
+            currentEnd = new Date(); // Up to now
+
+            prevStart = new Date(currentStart);
+            prevStart.setDate(prevStart.getDate() - 7);
+            prevEnd = new Date(currentStart);
+            prevEnd.setDate(prevEnd.getDate() - 1);
+            prevEnd.setHours(23, 59, 59, 999);
+        } else if (range === 'today') {
+            currentStart = new Date(now.setHours(0, 0, 0, 0));
+            currentEnd = new Date();
+            prevStart = new Date(currentStart);
+            prevStart.setDate(prevStart.getDate() - 1);
+            prevEnd = new Date(prevStart);
+            prevStart.setDate(prevEnd.getDate() - 1); // Fix previous day end
+            prevEnd.setHours(23, 59, 59, 999);
+        } else if (range === 'year') {
+            currentStart = new Date(now.getFullYear(), 0, 1);
+            currentEnd = now;
+            prevStart = new Date(now.getFullYear() - 1, 0, 1);
+            prevEnd = new Date(now.getFullYear() - 1, 11, 31, 23, 59, 59);
+        }
+
+        const filterByRange = (items, start, end) => {
+            return items.filter(tx => {
+                const d = new Date(tx.date || tx.created_at);
+                return d >= start && d <= end;
+            });
+        };
+
+        const currentTxs = filterByRange(txs, currentStart, currentEnd);
+        const prevTxs = filterByRange(txs, prevStart, prevEnd);
+
+        const sum = (items, type) => items.reduce((acc, tx) => {
+            if (type === 'income') return (tx.type === 'deposit' || tx.type === 'yield') ? acc + Number(tx.amount) : acc;
+            if (type === 'expense') return (tx.type === 'withdrawal' || tx.type === 'payment') ? acc + Number(tx.amount) : acc;
+            return acc;
+        }, 0);
+
+        const currentIncome = sum(currentTxs, 'income');
+        const currentExpense = sum(currentTxs, 'expense');
+        const prevIncome = sum(prevTxs, 'income');
+        const prevExpense = sum(prevTxs, 'expense');
+
+        const calcChange = (curr, prev) => {
+            if (prev === 0) return curr > 0 ? 100 : 0;
+            return ((curr - prev) / prev) * 100;
+        };
+
+        return {
+            income: { value: currentIncome, change: calcChange(currentIncome, prevIncome) },
+            expenses: { value: currentExpense, change: calcChange(currentExpense, prevExpense) },
+            transactions: { value: currentTxs.length, change: calcChange(currentTxs.length, prevTxs.length) },
+            balanceChange: { value: currentIncome - currentExpense, label: range === 'this_month' ? 'Flujo Neto (Mes)' : 'Flujo Neto' }
+        };
+    };
+
+    const dynamicStats = calculateStats(transactions, timeRange);
+
     return (
         <div className="space-y-8 pb-20">
             {/* Header / Actions */}
@@ -116,11 +214,34 @@ const DashboardHome = ({ searchQuery: globalSearchQuery, stats, transactions, wa
                         initial={{ opacity: 0, height: 0 }}
                         animate={{ opacity: 1, height: 'auto' }}
                         exit={{ opacity: 0, height: 0 }}
-                        className="flex justify-end overflow-hidden"
+                        className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4"
                     >
+                        {/* Time Range Selector */}
+                        <div className="flex bg-white/5 p-1 rounded-xl border border-white/10 w-fit overflow-x-auto max-w-full">
+                            {[
+                                { id: 'today', label: 'Hoy' },
+                                { id: 'this_week', label: 'Semana' },
+                                { id: 'this_month', label: 'Este Mes' },
+                                { id: 'last_month', label: 'Mes Pasado' },
+                                { id: 'last_30_days', label: '30 Días' },
+                                { id: 'year', label: 'Año' }
+                            ].map(range => (
+                                <button
+                                    key={range.id}
+                                    onClick={() => setTimeRange(range.id)}
+                                    className={`px-3 md:px-4 py-2 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${timeRange === range.id
+                                        ? 'bg-cyan-500 text-black shadow-lg shadow-cyan-500/20'
+                                        : 'text-white/60 hover:text-white hover:bg-white/5'
+                                        }`}
+                                >
+                                    {range.label}
+                                </button>
+                            ))}
+                        </div>
+
                         <button
                             onClick={() => setIsModalOpen(true)}
-                            className="flex items-center gap-2 px-6 py-3 bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 rounded-xl hover:bg-cyan-500/20 transition-all font-bold text-sm mb-4"
+                            className="flex items-center gap-2 px-6 py-3 bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 rounded-xl hover:bg-cyan-500/20 transition-all font-bold text-sm"
                         >
                             <Plus className="w-4 h-4" />
                             Nueva Transacción
@@ -129,7 +250,7 @@ const DashboardHome = ({ searchQuery: globalSearchQuery, stats, transactions, wa
                 )}
             </AnimatePresence>
 
-            {/* Collapsible Stats & Charts Section - Hide when searching or showing full history */}
+            {/* Collapsible Stats & Charts Section */}
             <AnimatePresence>
                 {!isSearching && !showAllHistory && (
                     <motion.div
@@ -137,40 +258,67 @@ const DashboardHome = ({ searchQuery: globalSearchQuery, stats, transactions, wa
                         exit={{ opacity: 0, height: 0, marginBottom: 0 }}
                         animate={{ opacity: 1, height: 'auto', marginBottom: 32 }}
                         transition={{ duration: 0.5, ease: [0.32, 0.72, 0, 1] }}
-                        className="space-y-8 overflow-hidden"
+                        className="space-y-8" // Removed overflow-hidden to fix clipping
                     >
                         {/* Stats Grid */}
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                            {/* Card 1: Balance */}
                             <StatsCard
                                 title="Balance Total"
                                 value={formatCurrency(stats.totalBalance)}
-                                trend={stats.totalBalance >= 0 ? "up" : "down"}
+                                trend={dynamicStats.income.value >= dynamicStats.expenses.value ? "up" : "down"}
                                 trendValue="--"
                                 icon={Wallet}
                                 delay={0}
                             />
+
+                            {/* Card 2: Dynamic (Expenses or Income) */}
+                            <div className="relative group">
+                                <StatsCard
+                                    title={
+                                        <div className="flex items-center gap-1 bg-white/5 p-0.5 rounded-lg border border-white/10 w-fit">
+                                            <button
+                                                onClick={(e) => { e.stopPropagation(); setStatView('expense'); }}
+                                                className={`text-[10px] uppercase font-bold px-2 py-1 rounded-md transition-all ${statView === 'expense' ? 'bg-rose-500/20 text-rose-300 shadow-sm' : 'text-white/40 hover:text-white hover:bg-white/5'}`}
+                                            >
+                                                Gastos
+                                            </button>
+                                            <button
+                                                onClick={(e) => { e.stopPropagation(); setStatView('income'); }}
+                                                className={`text-[10px] uppercase font-bold px-2 py-1 rounded-md transition-all ${statView === 'income' ? 'bg-emerald-500/20 text-emerald-300 shadow-sm' : 'text-white/40 hover:text-white hover:bg-white/5'}`}
+                                            >
+                                                Ingresos
+                                            </button>
+                                        </div>
+                                    }
+                                    value={formatCurrency(statView === 'expense' ? dynamicStats.expenses.value : dynamicStats.income.value)}
+                                    trend={statView === 'expense'
+                                        ? (dynamicStats.expenses.change > 0 ? "up" : "down")
+                                        : (dynamicStats.income.change >= 0 ? "up" : "down")}
+                                    trendValue={`${Math.abs(statView === 'expense' ? dynamicStats.expenses.change : dynamicStats.income.change).toFixed(1)}%`}
+                                    inverseTrend={statView === 'expense'}
+                                    icon={statView === 'expense' ? ArrowUpRight : TrendingUp}
+                                    delay={0.1}
+                                />
+                            </div>
+
+                            {/* Card 3: Daily Average */}
                             <StatsCard
-                                title="Beneficio Total"
-                                value={formatCurrency(stats.totalProfit)}
-                                trend={stats.totalProfit >= 0 ? "up" : "down"}
-                                trendValue="--"
-                                icon={ArrowUpRight}
-                                delay={0.1}
-                            />
-                            <StatsCard
-                                title="Transacciones"
-                                value={transactions.length}
+                                title="Promedio Diario"
+                                value={formatCurrency((dynamicStats.expenses.value + dynamicStats.income.value) / (timeRange === 'today' ? 1 : 30))} // Very rough
                                 trend="up"
-                                trendValue="--"
-                                icon={Users}
+                                trendValue="Est."
+                                icon={TrendingUp}
                                 delay={0.2}
                             />
+
+                            {/* Card 4: Net Flow */}
                             <StatsCard
-                                title="Último Ingreso"
-                                value={transactions.find(t => t.type === 'deposit')?.amount ? `+$${transactions.find(t => t.type === 'deposit').amount}` : '--'}
-                                trend="up"
-                                trendValue="Hoy"
-                                icon={TrendingUp}
+                                title="Flujo Neto"
+                                value={formatCurrency(dynamicStats.balanceChange.value)}
+                                trend={dynamicStats.balanceChange.value >= 0 ? "up" : "down"}
+                                trendValue={dynamicStats.balanceChange.value >= 0 ? "+Ganancia" : "-Pérdida"}
+                                icon={Users}
                                 delay={0.3}
                             />
                         </div>

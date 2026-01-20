@@ -2,8 +2,12 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { ArrowUpRight, ArrowDownRight } from 'lucide-react';
 
-const StatsCard = ({ title, value, trend, trendValue, icon: Icon, delay = 0 }) => {
-    const isPositive = trend === 'up';
+const StatsCard = ({ title, value, trend, trendValue, icon: Icon, delay = 0, inverseTrend = false }) => {
+    // If inverseTrend is true (e.g. Expenses), UP is Bad (pink), DOWN is Good (cyan)
+    // If standard (Income), UP is Good (cyan), DOWN is Bad (pink)
+    const isGood = inverseTrend ? trend === 'down' : trend === 'up';
+    const colorClass = isGood ? 'text-cyan-400' : 'text-pink-500';
+    const bgClass = isGood ? 'bg-cyan-500/10' : 'bg-pink-500/10';
 
     return (
         <motion.div
@@ -21,15 +25,14 @@ const StatsCard = ({ title, value, trend, trendValue, icon: Icon, delay = 0 }) =
                     <h3 className="text-white/40 text-sm font-medium mb-1">{title}</h3>
                     <div className="text-2xl font-bold text-white tracking-tight">{value}</div>
                 </div>
-                <div className={`p-3 rounded-xl bg-white/5 border border-white/5 ${isPositive ? 'text-cyan-400' : 'text-pink-500'}`}>
+                <div className={`p-3 rounded-xl bg-white/5 border border-white/5 ${colorClass}`}>
                     <Icon className="w-5 h-5" />
                 </div>
             </div>
 
             <div className="relative z-10 mt-4 flex items-center gap-2">
-                <span className={`flex items-center text-xs font-bold px-2 py-1 rounded-full ${isPositive ? 'bg-cyan-500/10 text-cyan-400' : 'bg-pink-500/10 text-pink-500'
-                    }`}>
-                    {isPositive ? <ArrowUpRight className="w-3 h-3 mr-1" /> : <ArrowDownRight className="w-3 h-3 mr-1" />}
+                <span className={`flex items-center text-xs font-bold px-2 py-1 rounded-full ${bgClass} ${colorClass}`}>
+                    {trend === 'up' ? <ArrowUpRight className="w-3 h-3 mr-1" /> : <ArrowDownRight className="w-3 h-3 mr-1" />}
                     {trendValue}
                 </span>
                 <span className="text-white/30 text-xs">vs mes anterior</span>

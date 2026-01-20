@@ -13,6 +13,7 @@ import Analytics from './pages/dashboard/Analytics';
 import Goals from './pages/dashboard/Goals';
 import AIChat from './pages/dashboard/AIChat';
 import Categories from './pages/dashboard/Categories';
+import Debts from './pages/dashboard/Debts';
 import UserSetupWizard from './pages/UserSetupWizard';
 
 const AppContent = () => {
@@ -41,6 +42,7 @@ const AppContent = () => {
         {currentView === 'goals' && <Goals />}
         {currentView === 'ai-chat' && <AIChat />}
         {currentView === 'categories' && <Categories />}
+        {currentView === 'debts' && <Debts />}
         {currentView === 'settings' && <Settings />}
       </DashboardLayout>
     );

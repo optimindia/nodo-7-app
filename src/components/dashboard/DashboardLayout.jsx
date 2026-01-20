@@ -15,6 +15,7 @@ import AIChat from '../../pages/dashboard/AIChat';
 import Categories from '../../pages/dashboard/Categories';
 import Shopping from '../../pages/dashboard/Shopping';
 import AdminDashboard from '../../pages/admin/AdminDashboard';
+import Debts from '../../pages/dashboard/Debts';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const DashboardLayout = ({ children, currentView, setCurrentView }) => {
@@ -81,6 +82,7 @@ const DashboardLayout = ({ children, currentView, setCurrentView }) => {
             case 'shopping': return <Shopping {...sharedProps} />;
             case 'categories': return <Categories />;
             case 'ai-chat': return <AIChat />;
+            case 'debts': return <Debts {...sharedProps} />;
             case 'settings': return <Settings />;
             case 'admin': return <AdminDashboard />;
             default: return <DashboardHome {...sharedProps} />;
