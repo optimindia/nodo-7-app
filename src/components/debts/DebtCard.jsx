@@ -1,6 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { TrendingDown, Calendar, AlertCircle } from 'lucide-react';
+import { formatCurrency } from '../../utils/format';
 
 const DebtCard = ({ debt, onDelete }) => {
     // Helper
@@ -41,7 +42,7 @@ const DebtCard = ({ debt, onDelete }) => {
                     ) : (
                         <div className="text-right">
                             <p className="text-xs text-white/40 mb-0.5">Mínimo</p>
-                            <p className="font-mono font-bold text-red-400">${Number(debt.min_payment).toLocaleString()}</p>
+                            <p className="font-mono font-bold text-red-400">{formatCurrency(debt.min_payment)}</p>
                         </div>
                     )}
                 </div>
@@ -65,7 +66,7 @@ const DebtCard = ({ debt, onDelete }) => {
                     <div>
                         <p className="text-xs text-white/40 mb-1">Restante</p>
                         <p className="text-2xl font-black text-white tracking-tight">
-                            ${Number(debt.current_balance).toLocaleString()}
+                            {formatCurrency(debt.current_balance)}
                         </p>
                     </div>
 

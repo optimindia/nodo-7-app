@@ -5,6 +5,7 @@ import { supabase } from '../../lib/supabaseClient';
 import { useGoals } from '../../hooks/useGoals';
 import { useCategories } from '../../hooks/useCategories';
 import { useAuth } from '../../context/AuthContext';
+import { formatCurrency } from '../../utils/format';
 
 const TransactionModal = ({ isOpen, onClose, onTransactionAdded, userId, initialData }) => {
     const { user } = useAuth();
@@ -56,12 +57,55 @@ const TransactionModal = ({ isOpen, onClose, onTransactionAdded, userId, initial
 
     const activeCategories = categories.filter(c => c.type === (type === 'deposit' ? 'income' : 'expense'));
 
+    // Helper: Format number to Argentine string (1.000,00)
+    const formatNumber = (val) => {
+        if (!val) return '';
+        val = val.toString().replace(/\./g, ','); // Ensure dot becomes comma if passed as float
+        const parts = val.split(',');
+        const integerPart = parts[0].replace(/\D/g, ''); // Only numbers
+        const formattedInt = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+        return parts.length > 1 ? `${formattedInt},${parts[1].slice(0, 2)}` : formattedInt;
+    };
+
+    const handleAmountChange = (e) => {
+        let val = e.target.value;
+        // Allow numbers and one comma
+        val = val.replace(/[^0-9,]/g, '');
+
+        // Handle comma splitting
+        const parts = val.split(',');
+
+        // Format integer part
+        const integerPart = parts[0].replace(/\./g, '');
+        const formattedInt = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+
+        if (parts.length > 1) {
+            // Limit decimals to 2
+            const decimalPart = parts[1].slice(0, 2);
+            setAmount(`${formattedInt},${decimalPart}`);
+        } else {
+            // If we just deleted a comma, we might have "1.000," -> "1.000"
+            // But if we are typing, just formatting int is enough
+            // However, checking if user typed comma
+            if (e.nativeEvent.data === ',') {
+                setAmount(`${formattedInt},`);
+            } else {
+                setAmount(formattedInt);
+            }
+        }
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         setLoading(true);
         setError(null);
 
         try {
+            // Parse Amount: "1.234,50" -> 1234.50
+            const rawAmount = parseFloat(amount.replace(/\./g, '').replace(',', '.'));
+
+            if (isNaN(rawAmount) || rawAmount <= 0) throw new Error("Monto inválido");
+
             // Smart Defaults
             const finalDesc = description.trim() || category || (type === 'deposit' ? 'Ingreso' : 'Gasto');
             const finalCategory = category || 'General';
@@ -73,7 +117,7 @@ const TransactionModal = ({ isOpen, onClose, onTransactionAdded, userId, initial
 
             const payload = {
                 user_id: targetUserId,
-                amount: parseFloat(amount),
+                amount: rawAmount,
                 description: finalDesc,
                 type: type === 'deposit' ? 'deposit' : 'withdrawal',
                 category: finalCategory,
@@ -103,7 +147,7 @@ const TransactionModal = ({ isOpen, onClose, onTransactionAdded, userId, initial
             if (!initialData?.id && selectedGoal && type === 'deposit') {
                 const goal = goals.find(g => g.id === selectedGoal);
                 if (goal) {
-                    const newAmount = (Number(goal.current_amount) || 0) + parseFloat(amount);
+                    const newAmount = (Number(goal.current_amount) || 0) + rawAmount;
                     await supabase.from('goals').update({ current_amount: newAmount }).eq('id', selectedGoal);
                 }
             }
@@ -120,6 +164,7 @@ const TransactionModal = ({ isOpen, onClose, onTransactionAdded, userId, initial
             setLoading(false);
         }
     };
+
 
     if (!isOpen) return null;
 
@@ -183,15 +228,14 @@ const TransactionModal = ({ isOpen, onClose, onTransactionAdded, userId, initial
                                 <div className="mb-8 text-center relative">
                                     <span className="text-4xl font-bold text-white/40 absolute left-8 top-1/2 -translate-y-1/2">$</span>
                                     <input
-                                        type="number"
+                                        type="text"
                                         value={amount}
-                                        onChange={e => setAmount(e.target.value)}
-                                        placeholder="0"
+                                        onChange={handleAmountChange}
+                                        placeholder="0,00"
                                         className="w-full bg-transparent text-center text-6xl font-bold text-white placeholder:text-white/10 focus:outline-none"
                                         autoFocus
                                         required
-                                        min="0"
-                                        step="0.01"
+                                        inputMode="decimal"
                                     />
                                     {type === 'deposit' && selectedGoal && (
                                         <div className="mt-2 text-xs font-bold text-emerald-400 bg-emerald-500/10 inline-block px-3 py-1 rounded-full border border-emerald-500/20">
@@ -248,7 +292,7 @@ const TransactionModal = ({ isOpen, onClose, onTransactionAdded, userId, initial
                                                             <option value="" className="bg-[#0f172a] text-white/40">Seleccionar...</option>
                                                             {wallets.map(w => (
                                                                 <option key={w.id} value={w.id} className="bg-[#0f172a] text-white">
-                                                                    {w.name}
+                                                                    {w.name} ({formatCurrency(w.balance)})
                                                                 </option>
                                                             ))}
                                                         </>

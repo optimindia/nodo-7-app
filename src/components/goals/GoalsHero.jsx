@@ -1,6 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Trophy, Rocket, Target } from 'lucide-react';
+import { formatCurrency } from '../../utils/format';
 
 const GoalsHero = ({ goals }) => {
     const totalTarget = goals.reduce((acc, g) => acc + Number(g.target_amount), 0);
@@ -37,12 +38,12 @@ const GoalsHero = ({ goals }) => {
                     <div className="flex gap-8">
                         <div>
                             <p className="text-white/40 text-sm uppercase font-bold tracking-wider mb-1">Ahorrado</p>
-                            <p className="text-2xl font-bold text-white font-mono">${totalSaved.toLocaleString()}</p>
+                            <p className="text-2xl font-bold text-white font-mono">{formatCurrency(totalSaved)}</p>
                         </div>
                         <div className="w-px h-12 bg-white/10" />
                         <div>
                             <p className="text-white/40 text-sm uppercase font-bold tracking-wider mb-1">Falta para la meta</p>
-                            <p className="text-2xl font-bold text-white/60 font-mono">${remaining.toLocaleString()}</p>
+                            <p className="text-2xl font-bold text-white/60 font-mono">{formatCurrency(remaining)}</p>
                         </div>
                     </div>
                 </div>

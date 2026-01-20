@@ -41,6 +41,13 @@ const CreateGoalModal = ({ isOpen, onClose, onSave, initialData }) => {
         onClose();
     };
 
+    const handleFormat = (val) => {
+        val = val.replace(/[^0-9,]/g, '');
+        const parts = val.split(',');
+        const integerPart = parts[0].replace(/\./g, '').replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+        return parts.length > 1 ? `${integerPart},${parts[1].slice(0, 2)}` : (val.includes(',') ? `${integerPart},` : integerPart);
+    };
+
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <motion.div
@@ -81,20 +88,22 @@ const CreateGoalModal = ({ isOpen, onClose, onSave, initialData }) => {
                             <div>
                                 <label className="block text-xs font-bold text-white/40 uppercase mb-2">Objetivo ($)</label>
                                 <input
-                                    type="number"
+                                    type="text"
                                     required
                                     value={formData.target_amount}
-                                    onChange={(e) => setFormData({ ...formData, target_amount: e.target.value })}
+                                    onChange={(e) => setFormData({ ...formData, target_amount: handleFormat(e.target.value) })}
                                     className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-cyan-500/50 transition-colors"
+                                    inputMode="decimal"
                                 />
                             </div>
                             <div>
                                 <label className="block text-xs font-bold text-white/40 uppercase mb-2">Ahorrado ($)</label>
                                 <input
-                                    type="number"
+                                    type="text"
                                     value={formData.current_amount}
-                                    onChange={(e) => setFormData({ ...formData, current_amount: e.target.value })}
+                                    onChange={(e) => setFormData({ ...formData, current_amount: handleFormat(e.target.value) })}
                                     className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-cyan-500/50 transition-colors"
+                                    inputMode="decimal"
                                 />
                             </div>
                         </div>
@@ -152,7 +161,11 @@ const QuickAddModal = ({ isOpen, onClose, onSave, goal }) => {
 
     const handleSubmit = (e) => {
         e.preventDefault();
-        onSave(goal.id, parseFloat(amount));
+        const parseArgentine = (val) => {
+            if (!val) return 0;
+            return parseFloat(val.toString().replace(/\./g, '').replace(',', '.'));
+        };
+        onSave(goal.id, parseArgentine(amount));
         setAmount('');
         onClose();
     };
@@ -180,13 +193,20 @@ const QuickAddModal = ({ isOpen, onClose, onSave, goal }) => {
 
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <input
-                        type="number"
+                        type="text"
                         autoFocus
                         required
                         value={amount}
-                        onChange={(e) => setAmount(e.target.value)}
-                        placeholder="0.00"
+                        onChange={(e) => {
+                            let val = e.target.value.replace(/[^0-9,]/g, '');
+                            const parts = val.split(',');
+                            const integerPart = parts[0].replace(/\./g, '').replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+                            const finalVal = parts.length > 1 ? `${integerPart},${parts[1].slice(0, 2)}` : (val.includes(',') ? `${integerPart},` : integerPart);
+                            setAmount(finalVal);
+                        }}
+                        placeholder="0,00"
                         className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-4 text-center text-3xl font-bold text-white focus:outline-none focus:border-emerald-500/50 transition-colors"
+                        inputMode="decimal"
                     />
 
                     <button
@@ -237,21 +257,31 @@ const Goals = () => {
                 const { error } = await supabase.from('goals').delete().eq('id', editingGoal.id);
                 if (error) throw error;
             } else if (editingGoal) {
+                const parseArgentine = (val) => {
+                    if (!val) return 0;
+                    if (typeof val === 'number') return val;
+                    return parseFloat(val.toString().replace(/\./g, '').replace(',', '.'));
+                };
                 const { error } = await supabase.from('goals').update({
                     title: formData.title,
-                    target_amount: parseFloat(formData.target_amount),
-                    current_amount: parseFloat(formData.current_amount || 0),
+                    target_amount: parseArgentine(formData.target_amount),
+                    current_amount: parseArgentine(formData.current_amount),
                     deadline: formData.deadline,
                     icon: formData.icon,
                     image_url: formData.image_url
                 }).eq('id', editingGoal.id);
                 if (error) throw error;
             } else {
+                const parseArgentine = (val) => {
+                    if (!val) return 0;
+                    if (typeof val === 'number') return val;
+                    return parseFloat(val.toString().replace(/\./g, '').replace(',', '.'));
+                };
                 const { error } = await supabase.from('goals').insert([{
                     user_id: session.user.id,
                     title: formData.title,
-                    target_amount: parseFloat(formData.target_amount),
-                    current_amount: parseFloat(formData.current_amount || 0),
+                    target_amount: parseArgentine(formData.target_amount),
+                    current_amount: parseArgentine(formData.current_amount),
                     deadline: formData.deadline,
                     icon: formData.icon,
                     image_url: formData.image_url

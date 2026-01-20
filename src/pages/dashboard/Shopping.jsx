@@ -3,6 +3,7 @@ import { ShoppingCart, Plus, Check, Trash2, Calendar, DollarSign, Wallet, MoreVe
 import { supabase } from '../../lib/supabaseClient';
 import { useAuth } from '../../context/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
+import { formatCurrency } from '../../utils/format';
 
 const Shopping = ({ wallets }) => {
     const { user } = useAuth();
@@ -121,7 +122,12 @@ const Shopping = ({ wallets }) => {
         }
 
         try {
-            const amount = parseFloat(finalizeDetails.amount);
+            const parseArgentine = (val) => {
+                if (!val) return 0;
+                if (typeof val === 'number') return val;
+                return parseFloat(val.toString().replace(/\./g, '').replace(',', '.'));
+            };
+            const amount = parseArgentine(finalizeDetails.amount);
             if (isNaN(amount) || amount <= 0) {
                 alert("El monto debe ser válido.");
                 return;
@@ -411,12 +417,19 @@ const Shopping = ({ wallets }) => {
                                                     <div className="relative w-full max-w-[200px] group">
                                                         <span className="absolute left-4 top-1/2 -translate-y-1/2 text-2xl font-bold text-emerald-500/50 group-focus-within:text-emerald-500 transition-colors">$</span>
                                                         <input
-                                                            type="number"
+                                                            type="text"
                                                             autoFocus
                                                             className="w-full bg-[#030712] border border-emerald-500/20 rounded-2xl py-3 pl-10 pr-4 text-3xl font-bold text-white text-center focus:outline-none focus:border-emerald-500/50 focus:shadow-[0_0_20px_rgba(16,185,129,0.1)] transition-all placeholder:text-white/5"
-                                                            placeholder="0"
+                                                            placeholder="0,00"
                                                             value={finalizeDetails.amount}
-                                                            onChange={e => setFinalizeDetails({ ...finalizeDetails, amount: e.target.value })}
+                                                            onChange={e => {
+                                                                let val = e.target.value.replace(/[^0-9,]/g, '');
+                                                                const parts = val.split(',');
+                                                                const integerPart = parts[0].replace(/\./g, '').replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+                                                                const finalVal = parts.length > 1 ? `${integerPart},${parts[1].slice(0, 2)}` : (val.includes(',') ? `${integerPart},` : integerPart);
+                                                                setFinalizeDetails({ ...finalizeDetails, amount: finalVal });
+                                                            }}
+                                                            inputMode="decimal"
                                                         />
                                                     </div>
                                                 </div>
@@ -446,7 +459,7 @@ const Shopping = ({ wallets }) => {
                                                                     <span className={`font-bold text-xs text-left ${finalizeDetails.wallet_id === w.id ? 'text-white' : 'text-white/60 group-hover:text-white'}`}>{w.name}</span>
                                                                 </div>
                                                                 <span className={`text-xs font-mono font-bold tracking-tight ${finalizeDetails.wallet_id === w.id ? 'text-emerald-400' : 'text-white/40'}`}>
-                                                                    ${Number(w.balance || 0).toLocaleString()}
+                                                                    {formatCurrency(w.balance || 0)}
                                                                 </span>
                                                             </button>
                                                         ))}

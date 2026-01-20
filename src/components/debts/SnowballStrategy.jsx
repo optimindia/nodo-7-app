@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { TrendingDown, Zap, Trophy, Shield, Skull, ArrowRight, CheckCircle2 } from 'lucide-react';
+import { formatCurrency } from '../../utils/format';
 
 const SnowballStrategy = ({ debts, monthlyExtra, budgetTotal, onPayDebt }) => {
 
@@ -68,7 +69,7 @@ const SnowballStrategy = ({ debts, monthlyExtra, budgetTotal, onPayDebt }) => {
                                 <Skull className="w-4 h-4" /> Objetivo Actual
                             </div>
                             <h2 className="text-3xl md:text-4xl font-black text-white mb-1">{strategyData.target.name}</h2>
-                            <p className="text-white/60">Saldo restante: <span className="text-white font-bold">${Number(strategyData.target.current_balance).toLocaleString()}</span></p>
+                            <p className="text-white/60">Saldo restante: <span className="text-white font-bold">{formatCurrency(strategyData.target.current_balance)}</span></p>
                         </div>
                         <div className="text-right hidden md:block">
                             <p className="text-xs text-white/40 font-mono tracking-widest uppercase">ENEMIGO #1</p>
@@ -85,7 +86,7 @@ const SnowballStrategy = ({ debts, monthlyExtra, budgetTotal, onPayDebt }) => {
                         <div className="flex flex-col gap-2 w-full md:w-auto">
                             <div className="bg-red-600 text-white px-8 py-4 rounded-xl font-black text-3xl shadow-[0_0_30px_rgba(220,38,38,0.4)] flex items-center justify-center gap-2">
                                 <Zap className="w-6 h-6 fill-current" />
-                                ${strategyData.paymentAmount.toLocaleString()}
+                                {formatCurrency(strategyData.paymentAmount)}
                             </div>
                             <button
                                 onClick={() => onPayDebt && onPayDebt(strategyData.target)}
@@ -100,7 +101,7 @@ const SnowballStrategy = ({ debts, monthlyExtra, budgetTotal, onPayDebt }) => {
                     {strategyData.extraPower > 0 ? (
                         <p className="text-xs text-center md:text-right mt-4 text-emerald-400/80 flex items-center justify-end gap-1.5">
                             <CheckCircle2 className="w-4 h-4" />
-                            Incluye el mínimo + ${strategyData.extraPower.toLocaleString()} extra de tu presupuesto.
+                            Incluye el mínimo + {formatCurrency(strategyData.extraPower)} extra de tu presupuesto.
                         </p>
                     ) : (
                         <p className="text-xs text-center md:text-right mt-4 text-orange-400/80 flex items-center justify-end gap-1.5">
@@ -132,7 +133,7 @@ const SnowballStrategy = ({ debts, monthlyExtra, budgetTotal, onPayDebt }) => {
                                 <div className="flex items-center gap-4">
                                     <div className="text-right">
                                         <p className="text-xs text-white/40 mb-0.5">Pagar Mínimo</p>
-                                        <p className="font-mono font-bold text-white">${Number(debt.min_payment).toLocaleString()}</p>
+                                        <p className="font-mono font-bold text-white">{formatCurrency(debt.min_payment)}</p>
                                     </div>
                                     <button
                                         onClick={() => onPayDebt && onPayDebt(debt)}

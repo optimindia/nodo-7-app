@@ -93,6 +93,12 @@ const UserSetupWizard = ({ onComplete }) => {
             console.log('User ID:', user.id);
             console.log('Wallets to create:', walletsList);
 
+            const parseArgentine = (val) => {
+                if (!val) return 0;
+                if (typeof val === 'number') return val;
+                return parseFloat(val.toString().replace(/\./g, '').replace(',', '.'));
+            };
+
             // 1. Create Wallets (Loop through list)
             if (walletsList.length > 0) {
                 const getColorByType = (type) => {
@@ -103,9 +109,7 @@ const UserSetupWizard = ({ onComplete }) => {
                 };
 
                 for (const walletItem of walletsList) {
-                    // Safe parsing for amount
-                    const rawAmount = walletItem.amount ? String(walletItem.amount).replace(/,/g, '') : '';
-                    const initialBalance = rawAmount ? parseFloat(rawAmount) : 0;
+                    const initialBalance = parseArgentine(walletItem.amount);
 
                     console.log('Saving Wallet:', {
                         name: walletItem.name,
@@ -140,7 +144,7 @@ const UserSetupWizard = ({ onComplete }) => {
                     .insert([{
                         user_id: user.id,
                         title: goal.title,
-                        target_amount: parseFloat(goal.target_amount),
+                        target_amount: parseArgentine(goal.target_amount),
                         current_amount: 0,
                         deadline: new Date(new Date().setFullYear(new Date().getFullYear() + 1)), // Default 1 year
                         status: 'active',
@@ -303,11 +307,18 @@ const UserSetupWizard = ({ onComplete }) => {
                                 <div>
                                     <label className="block text-xs font-medium text-white/40 mb-1">Saldo</label>
                                     <input
-                                        type="number"
+                                        type="text"
                                         value={newWallet.amount}
-                                        onChange={(e) => setNewWallet({ ...newWallet, amount: e.target.value })}
+                                        onChange={(e) => {
+                                            let val = e.target.value.replace(/[^0-9,]/g, '');
+                                            const parts = val.split(',');
+                                            const integerPart = parts[0].replace(/\./g, '').replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+                                            const finalVal = parts.length > 1 ? `${integerPart},${parts[1].slice(0, 2)}` : (val.includes(',') ? `${integerPart},` : integerPart);
+                                            setNewWallet({ ...newWallet, amount: finalVal });
+                                        }}
                                         className="w-full bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:border-cyan-500/50 outline-none"
-                                        placeholder="0.00"
+                                        placeholder="0,00"
+                                        inputMode="decimal"
                                     />
                                 </div>
                             </div>
@@ -342,11 +353,18 @@ const UserSetupWizard = ({ onComplete }) => {
                                 <div className="relative">
                                     <span className="absolute left-4 top-1/2 -translate-y-1/2 text-white/40 font-bold">$</span>
                                     <input
-                                        type="number"
+                                        type="text"
                                         value={goal.target_amount}
-                                        onChange={(e) => setGoal({ ...goal, target_amount: e.target.value })}
+                                        onChange={(e) => {
+                                            let val = e.target.value.replace(/[^0-9,]/g, '');
+                                            const parts = val.split(',');
+                                            const integerPart = parts[0].replace(/\./g, '').replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+                                            const finalVal = parts.length > 1 ? `${integerPart},${parts[1].slice(0, 2)}` : (val.includes(',') ? `${integerPart},` : integerPart);
+                                            setGoal({ ...goal, target_amount: finalVal });
+                                        }}
                                         className="w-full bg-white/5 border border-white/10 rounded-xl pl-8 pr-4 py-3 text-white focus:border-cyan-500/50 outline-none transition-colors"
-                                        placeholder="0.00"
+                                        placeholder="0,00"
+                                        inputMode="decimal"
                                     />
                                 </div>
                             </div>

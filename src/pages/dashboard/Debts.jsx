@@ -9,6 +9,7 @@ import AddDebtModal from '../../components/debts/AddDebtModal';
 import DebtCard from '../../components/debts/DebtCard';
 import SnowballStrategy from '../../components/debts/SnowballStrategy';
 import PayDebtModal from '../../components/debts/PayDebtModal';
+import { formatCurrency, parseArgentine } from '../../utils/format';
 
 const Debts = ({ wallets }) => { // Wallets passed from Layout with balance calculated
     const { user } = useAuth();
@@ -17,7 +18,7 @@ const Debts = ({ wallets }) => { // Wallets passed from Layout with balance calc
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [isPayModalOpen, setIsPayModalOpen] = useState(false);
     const [selectedDebtToPay, setSelectedDebtToPay] = useState(null);
-    const [monthlyBudget, setMonthlyBudget] = useState(0); // Total money available for debts
+    const [monthlyBudget, setMonthlyBudget] = useState(''); // Formatted string state
 
     // Fetch Debts
     const fetchDebts = async () => {
@@ -39,12 +40,15 @@ const Debts = ({ wallets }) => { // Wallets passed from Layout with balance calc
 
     // Calculate Totals Safe
     const toNum = (v) => { const n = parseFloat(v); return isNaN(n) ? 0 : n; };
+    // parseArgentine imported from utils
+
     const totalDebt = debts.reduce((acc, curr) => acc + toNum(curr.current_balance), 0);
     const totalMinPayments = debts.reduce((acc, curr) => acc + toNum(curr.min_payment), 0);
+    const budgetNum = parseArgentine(monthlyBudget);
 
     // Derived State
-    const extraCapacity = Math.max(0, monthlyBudget - totalMinPayments);
-    const isBudgetLow = monthlyBudget > 0 && monthlyBudget < totalMinPayments;
+    const extraCapacity = Math.max(0, budgetNum - totalMinPayments);
+    const isBudgetLow = budgetNum > 0 && budgetNum < totalMinPayments;
 
     const handleDelete = async (id) => {
         if (!window.confirm("¿Estás seguro de eliminar esta deuda?")) return;
@@ -103,29 +107,36 @@ const Debts = ({ wallets }) => { // Wallets passed from Layout with balance calc
                             <div className="relative">
                                 <span className="absolute left-4 top-1/2 -translate-y-1/2 text-white/30 font-bold">$</span>
                                 <input
-                                    type="number"
-                                    value={monthlyBudget || ''}
-                                    onChange={(e) => setMonthlyBudget(Number(e.target.value))}
+                                    type="text"
+                                    value={monthlyBudget}
+                                    onChange={(e) => {
+                                        let val = e.target.value.replace(/[^0-9,]/g, '');
+                                        const parts = val.split(',');
+                                        const integerPart = parts[0].replace(/\./g, '').replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+                                        const finalVal = parts.length > 1 ? `${integerPart},${parts[1].slice(0, 2)}` : (val.includes(',') ? `${integerPart},` : integerPart);
+                                        setMonthlyBudget(finalVal);
+                                    }}
                                     className={`w-full bg-black/40 border ${isBudgetLow ? 'border-red-500 text-red-400' : 'border-white/10 focus:border-cyan-500 text-white'} rounded-xl p-3 pl-8 font-bold outline-none transition-all placeholder:text-white/10`}
-                                    placeholder="Ej: 500.00"
+                                    placeholder="Ej: 500,00"
+                                    inputMode="decimal"
                                 />
                             </div>
                             {isBudgetLow && (
                                 <div className="mt-2 flex items-start gap-2 text-red-400 text-xs bg-red-500/10 p-2 rounded-lg">
                                     <Info className="w-4 h-4 shrink-0" />
-                                    <p>¡Cuidado! Esto no cubre tus pagos mínimos obligatorios (${totalMinPayments.toLocaleString()}). Necesitas más dinero.</p>
+                                    <p>¡Cuidado! Esto no cubre tus pagos mínimos obligatorios ({formatCurrency(totalMinPayments)}). Necesitas más dinero.</p>
                                 </div>
                             )}
                         </div>
 
                         <div className="flex justify-between items-center py-3 border-t border-white/5">
                             <p className="text-sm text-white/60">Tus Pagos Mínimos:</p>
-                            <p className="text-sm font-bold text-white/80">${totalMinPayments.toLocaleString()}</p>
+                            <p className="text-sm font-bold text-white/80">{formatCurrency(totalMinPayments)}</p>
                         </div>
 
                         <div className="flex justify-between items-center py-3 border-t border-white/5">
                             <p className="text-sm text-cyan-400 font-bold">Poder de Ataque (Extra):</p>
-                            <p className="text-lg font-black text-cyan-400">+${extraCapacity.toLocaleString()}</p>
+                            <p className="text-lg font-black text-cyan-400">+{formatCurrency(extraCapacity)}</p>
                         </div>
                     </div>
 
@@ -133,7 +144,7 @@ const Debts = ({ wallets }) => { // Wallets passed from Layout with balance calc
                     <div className="space-y-4">
                         <div className="flex justify-between items-end">
                             <h3 className="text-xs font-bold text-white/40 uppercase tracking-widest pl-1">Tus Deudas</h3>
-                            <span className="text-xs text-white/30">Total: ${totalDebt.toLocaleString()}</span>
+                            <span className="text-xs text-white/30">Total: {formatCurrency(totalDebt)}</span>
                         </div>
 
                         {debts.length === 0 ? (

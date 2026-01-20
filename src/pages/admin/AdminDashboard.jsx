@@ -69,7 +69,7 @@ const AdminDashboard = () => {
                 .from('profiles')
                 .update({
                     role: newUser.role,
-                    credits: newUser.role === 'client' ? 0 : parseInt(newUser.credits),
+                    credits: newUser.role === 'client' ? 0 : parseInt(newUser.credits.toString().replace(/\./g, '')),
                     created_by: currentUserId
                 })
                 .eq('id', newUserId);
@@ -355,9 +355,13 @@ const AdminDashboard = () => {
                         {newUser.role !== 'client' && (
                             <Input
                                 label="Créditos Iniciales"
-                                type="number"
-                                value={newUser.credits}
-                                onChange={e => setNewUser({ ...newUser, credits: e.target.value })}
+                                type="text"
+                                value={newUser.credits || ''}
+                                onChange={e => {
+                                    const val = e.target.value.replace(/\D/g, '');
+                                    const formatted = val.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+                                    setNewUser({ ...newUser, credits: formatted });
+                                }}
                             />
                         )}
                     </div>
@@ -416,9 +420,10 @@ const ManageCreditsModal = ({ isOpen, onClose, user, onSuccess }) => {
         e.preventDefault();
         setLoading(true);
         try {
+            const parsedAmount = parseInt(amount.replace(/\./g, ''));
             const { error } = await supabase.rpc('manage_credits', {
                 target_user_id: user.id,
-                amount: parseInt(amount)
+                amount: parsedAmount
             });
             if (error) throw error;
             onSuccess();
@@ -434,7 +439,20 @@ const ManageCreditsModal = ({ isOpen, onClose, user, onSuccess }) => {
                 <div className="text-sm text-white/60 mb-4">
                     Saldo actual: <span className="text-cyan-400 font-bold">{user.credits}</span>
                 </div>
-                <Input label="Cantidad a Transferir (Use negativo para restar)" type="number" value={amount} onChange={e => setAmount(e.target.value)} placeholder="Ej: 50 o -10" required />
+                <Input
+                    label="Cantidad a Transferir (Use negativo para restar)"
+                    type="text"
+                    value={amount}
+                    onChange={e => {
+                        const val = e.target.value.replace(/[^0-9-]/g, ''); // Allow negative
+                        const parts = val.split('-');
+                        const num = parts.length > 1 ? parts[1] : parts[0];
+                        const formatted = num.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+                        setAmount(parts.length > 1 ? `-${formatted}` : formatted);
+                    }}
+                    placeholder="Ej: 50 o -10"
+                    required
+                />
                 <Button loading={loading}>Confirmar Transacción</Button>
             </form>
         </Modal>

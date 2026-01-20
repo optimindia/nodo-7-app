@@ -152,18 +152,32 @@ const AdvancedSearch = ({
                                 </label>
                                 <div className="flex gap-2">
                                     <input
-                                        type="number"
+                                        type="text"
                                         placeholder="Min"
                                         value={filters.minAmount || ''}
-                                        onChange={(e) => handleFilterChange('minAmount', e.target.value)}
+                                        onChange={(e) => {
+                                            let val = e.target.value.replace(/[^0-9,]/g, '');
+                                            const parts = val.split(',');
+                                            const integerPart = parts[0].replace(/\./g, '').replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+                                            const finalVal = parts.length > 1 ? `${integerPart},${parts[1].slice(0, 2)}` : (val.includes(',') ? `${integerPart},` : integerPart);
+                                            handleFilterChange('minAmount', finalVal);
+                                        }}
                                         className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:border-cyan-500 focus:outline-none"
+                                        inputMode="decimal"
                                     />
                                     <input
-                                        type="number"
+                                        type="text"
                                         placeholder="Max"
                                         value={filters.maxAmount || ''}
-                                        onChange={(e) => handleFilterChange('maxAmount', e.target.value)}
+                                        onChange={(e) => {
+                                            let val = e.target.value.replace(/[^0-9,]/g, '');
+                                            const parts = val.split(',');
+                                            const integerPart = parts[0].replace(/\./g, '').replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+                                            const finalVal = parts.length > 1 ? `${integerPart},${parts[1].slice(0, 2)}` : (val.includes(',') ? `${integerPart},` : integerPart);
+                                            handleFilterChange('maxAmount', finalVal);
+                                        }}
                                         className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:border-cyan-500 focus:outline-none"
+                                        inputMode="decimal"
                                     />
                                 </div>
                             </div>

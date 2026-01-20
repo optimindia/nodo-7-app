@@ -3,6 +3,7 @@ import { motion, useMotionValue, useTransform, useSpring } from 'framer-motion';
 import { Target, Calendar, Clock, TrendingUp, PlusCircle, AlertTriangle, AlertCircle } from 'lucide-react';
 import { differenceInDays, differenceInHours, format, parseISO, isValid } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { formatCurrency } from '../../utils/format';
 
 const GoalCard3D = ({ goal, onEdit, onQuickAdd }) => {
     // --- 3D TILT EFFECT V4 (Softened) ---
@@ -183,7 +184,7 @@ const GoalCard3D = ({ goal, onEdit, onQuickAdd }) => {
                     <div className="mt-4">
                         <h3 className="text-3xl font-black text-white leading-tight drop-shadow-lg line-clamp-2">{goal.title}</h3>
                         <p className="text-white/60 font-medium text-sm mt-1">
-                            Meta: <span className="text-white">${target.toLocaleString()}</span>
+                            Meta: <span className="text-white">{formatCurrency(target)}</span>
                         </p>
                     </div>
 
@@ -195,7 +196,7 @@ const GoalCard3D = ({ goal, onEdit, onQuickAdd }) => {
                             <div>
                                 <p className="text-[10px] uppercase tracking-widest text-white/50 font-bold mb-1">Ahorrado</p>
                                 <p className="text-4xl font-bold text-white tracking-tighter shadow-black drop-shadow-md">
-                                    ${current.toLocaleString()}
+                                    {formatCurrency(current)}
                                 </p>
                             </div>
                             <span className={`text-2xl font-bold ${colors.text}`}>{progress.toFixed(0)}%</span>

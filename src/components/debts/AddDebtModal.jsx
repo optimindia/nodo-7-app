@@ -18,13 +18,22 @@ const AddDebtModal = ({ isOpen, onClose, onDebtAdded, userId }) => {
         setLoading(true);
 
         try {
+            const parseArgentine = (val) => {
+                if (!val) return 0;
+                if (typeof val === 'number') return val;
+                return parseFloat(val.toString().replace(/\./g, '').replace(',', '.'));
+            };
+
+            const currentBalance = parseArgentine(formData.current_balance);
+            const minPayment = parseArgentine(formData.min_payment);
+
             const { error } = await supabase.from('debts').insert([{
                 user_id: userId,
                 name: formData.name,
-                total_amount: formData.current_balance, // Initially, total = current
-                current_balance: formData.current_balance,
+                total_amount: currentBalance, // Initially, total = current
+                current_balance: currentBalance,
                 interest_rate: formData.interest_rate || 0,
-                min_payment: formData.min_payment || 0,
+                min_payment: minPayment || 0,
                 due_date: formData.due_date || null
             }]);
 
@@ -81,11 +90,18 @@ const AddDebtModal = ({ isOpen, onClose, onDebtAdded, userId }) => {
                                     <div className="relative">
                                         <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
                                         <input
-                                            type="number"
+                                            type="text"
                                             required
                                             className="w-full bg-black/20 border border-white/10 rounded-xl p-3 pl-9 text-white focus:border-red-500 outline-none transition-colors"
                                             value={formData.current_balance}
-                                            onChange={e => setFormData({ ...formData, current_balance: e.target.value })}
+                                            onChange={e => {
+                                                let val = e.target.value.replace(/[^0-9,]/g, '');
+                                                const parts = val.split(',');
+                                                const integerPart = parts[0].replace(/\./g, '').replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+                                                const finalVal = parts.length > 1 ? `${integerPart},${parts[1].slice(0, 2)}` : (val.includes(',') ? `${integerPart},` : integerPart);
+                                                setFormData({ ...formData, current_balance: finalVal });
+                                            }}
+                                            inputMode="decimal"
                                         />
                                     </div>
                                 </div>
@@ -94,11 +110,18 @@ const AddDebtModal = ({ isOpen, onClose, onDebtAdded, userId }) => {
                                     <div className="relative">
                                         <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
                                         <input
-                                            type="number"
+                                            type="text"
                                             required
                                             className="w-full bg-black/20 border border-white/10 rounded-xl p-3 pl-9 text-white focus:border-red-500 outline-none transition-colors"
                                             value={formData.min_payment}
-                                            onChange={e => setFormData({ ...formData, min_payment: e.target.value })}
+                                            onChange={e => {
+                                                let val = e.target.value.replace(/[^0-9,]/g, '');
+                                                const parts = val.split(',');
+                                                const integerPart = parts[0].replace(/\./g, '').replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+                                                const finalVal = parts.length > 1 ? `${integerPart},${parts[1].slice(0, 2)}` : (val.includes(',') ? `${integerPart},` : integerPart);
+                                                setFormData({ ...formData, min_payment: finalVal });
+                                            }}
+                                            inputMode="decimal"
                                         />
                                     </div>
                                 </div>

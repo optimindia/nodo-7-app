@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Wallet, DollarSign, CheckCircle2, AlertCircle, ArrowRight } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
+import { formatCurrency } from '../../utils/format';
 
 const PayDebtModal = ({ isOpen, onClose, debt, userId, wallets, onPaymentSuccess }) => {
     const [amount, setAmount] = useState('');
@@ -37,12 +38,19 @@ const PayDebtModal = ({ isOpen, onClose, debt, userId, wallets, onPaymentSuccess
         setError(null);
 
         try {
+            const parseArgentine = (val) => {
+                if (!val) return 0;
+                if (typeof val === 'number') return val;
+                return parseFloat(val.toString().replace(/\./g, '').replace(',', '.'));
+            };
+            const parsedAmount = parseArgentine(amount);
+
             if (!selectedWalletId) throw new Error("Selecciona una billetera");
-            if (Number(amount) <= 0) throw new Error("El monto debe ser mayor a 0");
-            if (Number(amount) > Number(debt.current_balance)) throw new Error("No puedes pagar más de lo que debes");
+            if (parsedAmount <= 0) throw new Error("El monto debe ser mayor a 0");
+            if (parsedAmount > Number(debt.current_balance)) throw new Error("No puedes pagar más de lo que debes");
 
             // Balance Check
-            if (selectedWallet && selectedWallet.balance < Number(amount)) {
+            if (selectedWallet && selectedWallet.balance < parsedAmount) {
                 if (!window.confirm("Advertencia: El saldo de esta billetera es insuficiente. ¿Continuar y dejar saldo negativo?")) {
                     setLoading(false);
                     return;
@@ -52,7 +60,7 @@ const PayDebtModal = ({ isOpen, onClose, debt, userId, wallets, onPaymentSuccess
             const { data, error } = await supabase.rpc('pay_debt', {
                 p_debt_id: debt.id,
                 p_wallet_id: selectedWalletId,
-                p_amount: Number(amount),
+                p_amount: parsedAmount,
                 p_description: `Pago a ${debt.name}`,
                 p_user_id: userId,
                 p_date: new Date().toISOString().split('T')[0]
@@ -122,7 +130,7 @@ const PayDebtModal = ({ isOpen, onClose, debt, userId, wallets, onPaymentSuccess
                                 </div>
                                 <div className="text-right">
                                     <p className="text-xs text-white/40 uppercase">Saldo Actual</p>
-                                    <p className="font-mono text-white">${Number(debt.current_balance).toLocaleString()}</p>
+                                    <p className="font-mono text-white">{formatCurrency(debt.current_balance)}</p>
                                 </div>
                             </div>
 
@@ -132,12 +140,18 @@ const PayDebtModal = ({ isOpen, onClose, debt, userId, wallets, onPaymentSuccess
                                 <div className="relative">
                                     <span className="absolute left-4 top-1/2 -translate-y-1/2 text-white/40 font-bold">$</span>
                                     <input
-                                        type="number"
+                                        type="text"
                                         value={amount}
-                                        onChange={e => setAmount(e.target.value)}
+                                        onChange={e => {
+                                            let val = e.target.value.replace(/[^0-9,]/g, '');
+                                            const parts = val.split(',');
+                                            const integerPart = parts[0].replace(/\./g, '').replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+                                            const finalVal = parts.length > 1 ? `${integerPart},${parts[1].slice(0, 2)}` : (val.includes(',') ? `${integerPart},` : integerPart);
+                                            setAmount(finalVal);
+                                        }}
                                         className="w-full bg-black/40 border border-white/10 focus:border-emerald-500 rounded-xl py-4 pl-8 pr-4 text-2xl font-bold text-white outline-none"
-                                        placeholder="0.00"
-                                        step="0.01"
+                                        placeholder="0,00"
+                                        inputMode="decimal"
                                     />
                                 </div>
                             </div>
@@ -155,7 +169,7 @@ const PayDebtModal = ({ isOpen, onClose, debt, userId, wallets, onPaymentSuccess
                                         {userWallets.length === 0 ? <option>Cargando billeteras...</option> : null}
                                         {userWallets.map(w => (
                                             <option key={w.id} value={w.id} className="bg-[#0f172a]">
-                                                {w.name} (Saldo: ${w.balance?.toLocaleString() || '0'})
+                                                {w.name} (Saldo: {formatCurrency(w.balance)})
                                             </option>
                                         ))}
                                     </select>

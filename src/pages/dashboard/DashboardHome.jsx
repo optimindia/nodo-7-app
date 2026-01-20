@@ -10,6 +10,7 @@ import AdvancedSearch from '../../components/dashboard/AdvancedSearch';
 import { Wallet, Users, ArrowUpRight, TrendingUp, Loader2, Plus, Pencil, Trash2 } from 'lucide-react';
 import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
 import { supabase } from '../../lib/supabaseClient';
+import { parseArgentine } from '../../utils/format';
 
 const DashboardHome = ({
     searchQuery: globalSearchQuery,
@@ -248,8 +249,8 @@ const DashboardHome = ({
             const matchesWallet = !filters.walletId || tx.wallet_id === filters.walletId;
 
             // 4. Amount Filter
-            const matchesMinAmount = !filters.minAmount || tx.amount >= parseFloat(filters.minAmount);
-            const matchesMaxAmount = !filters.maxAmount || tx.amount <= parseFloat(filters.maxAmount);
+            const matchesMinAmount = !filters.minAmount || tx.amount >= parseArgentine(filters.minAmount);
+            const matchesMaxAmount = !filters.maxAmount || tx.amount <= parseArgentine(filters.maxAmount);
 
             // 5. Date Filter (Simplified)
             let matchesDate = true;
@@ -368,20 +369,23 @@ const DashboardHome = ({
                         className="space-y-8" // Removed overflow-hidden to fix clipping
                     >
                         {/* Stats Grid */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                            {/* Card 1: Balance */}
-                            <StatsCard
-                                title="Balance Total"
-                                value={formatCurrency(stats.totalBalance)}
-                                trend={dynamicStats.income.value >= dynamicStats.expenses.value ? "up" : "down"}
-                                trendValue="--"
-                                icon={Wallet}
-                                delay={0}
-                                comparisonLabel={comparisonLabel}
-                            />
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 auto-rows-fr">
+                            {/* Card 1: Balance - HERO VARIANT */}
+                            <div className="col-span-1 md:col-span-2 lg:col-span-1 xl:col-span-1 h-full">
+                                <StatsCard
+                                    title="Balance Total"
+                                    value={formatCurrency(stats.totalBalance)}
+                                    trend={dynamicStats.income.value >= dynamicStats.expenses.value ? "up" : "down"}
+                                    trendValue="--"
+                                    icon={Wallet}
+                                    delay={0}
+                                    comparisonLabel={comparisonLabel}
+                                    variant="hero"
+                                />
+                            </div>
 
                             {/* Card 2: Dynamic (Expenses or Income) */}
-                            <div className="relative group">
+                            <div className="relative group h-full">
                                 <StatsCard
                                     title={
                                         <div className="flex items-center gap-1 bg-white/5 p-0.5 rounded-lg border border-white/10 w-fit">

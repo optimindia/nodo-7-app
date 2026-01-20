@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react';
+import { formatCurrency } from '../utils/format';
+import { startOfMonth, endOfMonth, subMonths, isWithinInterval, parseISO } from 'date-fns';
 import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../context/AuthContext';
 
@@ -122,14 +124,8 @@ export const useDashboardData = () => {
     }, [user, refreshTrigger]);
 
     // Helper to format currency based on user profile
-    const formatCurrency = (amount) => {
-        const currency = profile?.currency || 'USD';
-        return new Intl.NumberFormat('es-US', {
-            style: 'currency',
-            currency: currency,
-            minimumFractionDigits: 2
-        }).format(amount);
-    };
+    // const formatCurrency = (amount) => { ... } // Replaced by import
+
 
     return { profile, transactions, wallets, goals, stats, loading, formatCurrency, refreshData };
 };
