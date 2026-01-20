@@ -19,7 +19,7 @@ import Debts from '../../pages/dashboard/Debts';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const DashboardLayout = ({ children, currentView, setCurrentView }) => {
-    const { session } = useAuth();
+    const { session, profile } = useAuth();
     const [searchQuery, setSearchQuery] = useState('');
     const [isProfileOpen, setIsProfileOpen] = useState(false);
     const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
@@ -88,6 +88,9 @@ const DashboardLayout = ({ children, currentView, setCurrentView }) => {
             default: return <DashboardHome {...sharedProps} />;
         }
     };
+
+    // Calculate display name
+    const displayName = profile?.full_name || profile?.username || session?.user?.email?.split('@')[0] || 'Usuario';
 
     return (
         <div className="min-h-screen w-full bg-[#030712] text-white overflow-x-hidden selection:bg-cyan-500/30">
@@ -220,12 +223,12 @@ const DashboardLayout = ({ children, currentView, setCurrentView }) => {
                                 className="flex items-center gap-3 group outline-none"
                             >
                                 <div className="text-right hidden md:block group-hover:opacity-80 transition-opacity">
-                                    <div className="text-sm font-medium text-white">{session?.user?.email?.split('@')[0]}</div>
+                                    <div className="text-sm font-medium text-white">{displayName}</div>
                                     <div className="text-xs text-cyan-400">Miembro Pro</div>
                                 </div>
                                 <div className={`w-10 h-10 rounded-full p-[1px] transition-all ${isProfileOpen ? 'bg-cyan-500 shadow-[0_0_15px_rgba(34,211,238,0.4)]' : 'bg-gradient-to-r from-cyan-500 to-blue-600'}`}>
                                     <img
-                                        src={`https://ui-avatars.com/api/?name=${session?.user?.email}&background=0D8ABC&color=fff`}
+                                        src={`https://ui-avatars.com/api/?name=${displayName.replace(' ', '+')}&background=0D8ABC&color=fff`}
                                         alt="Profile"
                                         className="w-full h-full rounded-full border-2 border-[#030712]"
                                     />

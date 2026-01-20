@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
 
@@ -9,33 +8,32 @@ export const useAuth = () => useContext(AuthContext);
 export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
     const [session, setSession] = useState(null);
+    const [profile, setProfile] = useState(null); // Global profile state
     const [loading, setLoading] = useState(true);
     const [isBlocked, setIsBlocked] = useState(false);
-    const [hasCompletedSetup, setHasCompletedSetup] = useState(true); // Default true to avoid flickering wizard if check fails/delays, will update on check
+    const [hasCompletedSetup, setHasCompletedSetup] = useState(true);
 
-    const checkUserStatus = async (userId) => {
+    const fetchProfile = async (userId) => {
         try {
             const { data, error } = await supabase
                 .from('profiles')
-                .select('subscription_status, has_completed_setup')
+                .select('*')
                 .eq('id', userId)
                 .single();
 
             if (data) {
+                setProfile(data);
+
+                // Update status checks based on profile data
                 if (data.subscription_status === 'inactive') {
                     setIsBlocked(true);
                 } else {
                     setIsBlocked(false);
                 }
-
-                // If has_completed_setup is explicitly false, set it. 
-                // If it's null (new col) or true, assume true for now to be safe, OR force setup?
-                // Let's force setup if it's strictly false.
                 setHasCompletedSetup(data.has_completed_setup === true);
             }
         } catch (err) {
-            console.error("Error checking user status:", err);
-            // Default to safe access if error, or strict? Let's assume safe for now unless explicit block
+            console.error("Error fetching global profile:", err);
         }
     };
 
@@ -45,7 +43,7 @@ export const AuthProvider = ({ children }) => {
             setSession(session);
             setUser(session?.user ?? null);
             if (session?.user) {
-                checkUserStatus(session.user.id);
+                fetchProfile(session.user.id);
             }
             setLoading(false);
         });
@@ -55,8 +53,9 @@ export const AuthProvider = ({ children }) => {
             setSession(session);
             setUser(session?.user ?? null);
             if (session?.user) {
-                checkUserStatus(session.user.id);
+                fetchProfile(session.user.id);
             } else {
+                setProfile(null);
                 setIsBlocked(false);
             }
             setLoading(false);
@@ -65,6 +64,12 @@ export const AuthProvider = ({ children }) => {
         return () => subscription.unsubscribe();
     }, []);
 
+    const refreshProfile = async () => {
+        if (user) {
+            await fetchProfile(user.id);
+        }
+    };
+
     const signIn = async (email, password) => {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
@@ -72,11 +77,15 @@ export const AuthProvider = ({ children }) => {
 
     const signOut = async () => {
         await supabase.auth.signOut();
+        setProfile(null);
+        window.location.reload(); // Force reload to clear all states
     };
 
     const value = {
         session,
         user,
+        profile,        // Expose profile
+        refreshProfile, // Expose refresh function
         signIn,
         signOut,
         loading,

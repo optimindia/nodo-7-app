@@ -1,15 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import { User, Settings as SettingsIcon, CreditCard, Save, Loader2, Globe, Bell, Shield } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { User, Settings as SettingsIcon, CreditCard, Save, Loader2, Globe, Shield, CheckCircle, AlertCircle } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { supabase } from '../../lib/supabaseClient';
 
 const Settings = () => {
-    const { user } = useAuth();
+    const { user, refreshProfile } = useAuth();
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
     const [activeTab, setActiveTab] = useState('profile');
 
+    // Feedback State
+    const [feedback, setFeedback] = useState({ type: null, message: '' }); // { type: 'success' | 'error', message: '' }
+
+    // Profile Form Data
     const [formData, setFormData] = useState({
         full_name: '',
         username: '',
@@ -22,6 +26,14 @@ const Settings = () => {
     useEffect(() => {
         if (user) fetchProfile();
     }, [user]);
+
+    // Clear feedback after 3 seconds
+    useEffect(() => {
+        if (feedback.message) {
+            const timer = setTimeout(() => setFeedback({ type: null, message: '' }), 4000);
+            return () => clearTimeout(timer);
+        }
+    }, [feedback]);
 
     const fetchProfile = async () => {
         setLoading(true);
@@ -41,7 +53,11 @@ const Settings = () => {
                     language: data.language || 'es',
                     notifications_enabled: data.notifications_enabled !== false // Default true
                 });
+            } else if (error && error.code !== 'PGRST116') {
+                // Ignore "No rows found" error (PGRST116), handle others
+                console.error("Error fetching profile:", error);
             }
+            // If no data, formData stays with defaults which is fine for new users
         } catch (error) {
             console.error('Error fetching profile:', error);
         } finally {
@@ -49,29 +65,81 @@ const Settings = () => {
         }
     };
 
-    const handleSave = async () => {
+    const handleSaveProfile = async () => {
         setSaving(true);
+        setFeedback({ type: null, message: '' }); // Clear previous feedback
+
         try {
-            const { error } = await supabase
+            console.log("Iniciando guardado de perfil para:", user.id);
+
+            // 1. Check if profile exists
+            const { count, error: checkError } = await supabase
                 .from('profiles')
-                .update({
-                    full_name: formData.full_name,
-                    username: formData.username,
-                    bio: formData.bio,
-                    currency: formData.currency,
-                    language: formData.language,
-                    notifications_enabled: formData.notifications_enabled,
-                    updated_at: new Date()
-                })
+                .select('*', { count: 'exact', head: true })
                 .eq('id', user.id);
 
-            if (error) throw error;
+            if (checkError) {
+                console.error("Error verificando existencia de perfil:", checkError);
+                throw checkError;
+            }
 
-            // Ideally show a toast here
-            alert('Perfil actualizado correctamente');
+            const profileExists = count > 0;
+            console.log("Perfil existe:", profileExists);
+
+            let error;
+
+            if (profileExists) {
+                // 2. Update existing
+                console.log("Actualizando perfil existente...");
+                const result = await supabase
+                    .from('profiles')
+                    .update({
+                        full_name: formData.full_name,
+                        username: formData.username,
+                        bio: formData.bio,
+                        currency: formData.currency,
+                        language: formData.language,
+                        notifications_enabled: formData.notifications_enabled,
+                        updated_at: new Date()
+                    })
+                    .eq('id', user.id);
+                error = result.error;
+            } else {
+                // 3. Insert new
+                console.log("Creando nuevo perfil...");
+                const result = await supabase
+                    .from('profiles')
+                    .insert([{
+                        id: user.id,
+                        email: user.email,
+                        full_name: formData.full_name,
+                        username: formData.username,
+                        bio: formData.bio,
+                        currency: formData.currency,
+                        language: formData.language,
+                        notifications_enabled: formData.notifications_enabled,
+                        created_at: new Date(),
+                        updated_at: new Date()
+                    }]);
+                error = result.error;
+            }
+
+            if (error) {
+                console.error("Error en operación BD:", error);
+                throw error;
+            }
+
+            console.log("Guardado exitoso");
+            setFeedback({ type: 'success', message: 'Perfil guardado correctamente' });
+
+            // Refresh local data to be sure
+            await fetchProfile();
+            // Refresh global context
+            await refreshProfile();
+
         } catch (error) {
-            console.error('Error updating profile:', error);
-            alert('Error al guardar cambios');
+            console.error('Error final en handleSave:', error);
+            setFeedback({ type: 'error', message: 'Error al guardar: ' + (error.message || 'Error desconocido') });
         } finally {
             setSaving(false);
         }
@@ -80,7 +148,7 @@ const Settings = () => {
     const TabButton = ({ id, icon: Icon, label }) => (
         <button
             onClick={() => setActiveTab(id)}
-            className={`flex items-center gap-2 px-6 py-3 rounded-xl transition-all font-medium ${activeTab === id
+            className={`flex items-center gap-2 px-6 py-3 rounded-xl transition-all font-medium whitespace-nowrap ${activeTab === id
                 ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 shadow-[0_0_15px_rgba(34,211,238,0.1)]'
                 : 'text-white/40 hover:text-white hover:bg-white/5'
                 }`}
@@ -93,13 +161,28 @@ const Settings = () => {
     if (loading) return <div className="flex h-full items-center justify-center"><Loader2 className="w-8 h-8 text-cyan-400 animate-spin" /></div>;
 
     return (
-        <div className="space-y-8 max-w-4xl mx-auto">
+        <div className="space-y-8 max-w-4xl mx-auto pb-20">
 
             {/* Header */}
             <div>
                 <h1 className="text-3xl font-bold text-white mb-2">Ajustes</h1>
                 <p className="text-white/60">Gestiona tus preferencias personales y de cuenta.</p>
             </div>
+
+            {/* Notification Banner */}
+            <AnimatePresence>
+                {feedback.message && (
+                    <motion.div
+                        initial={{ opacity: 0, y: -20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -20 }}
+                        className={`fixed top-8 right-8 z-50 px-6 py-4 rounded-xl border backdrop-blur-md shadow-2xl flex items-center gap-3 ${feedback.type === 'success' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-rose-500/10 border-rose-500/20 text-rose-400'}`}
+                    >
+                        {feedback.type === 'success' ? <CheckCircle className="w-5 h-5" /> : <AlertCircle className="w-5 h-5" />}
+                        <span className="font-bold">{feedback.message}</span>
+                    </motion.div>
+                )}
+            </AnimatePresence>
 
             {/* Tabs */}
             <div className="flex gap-2 border-b border-white/10 pb-4 overflow-x-auto custom-scrollbar">
@@ -113,8 +196,11 @@ const Settings = () => {
                 <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-cyan-500/5 blur-[100px] rounded-full pointer-events-none -translate-y-1/2 translate-x-1/3" />
 
                 <div className="relative z-10 flex-1">
+
+                    {/* --- PROFILE TAB --- */}
                     {activeTab === 'profile' && (
                         <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-6 max-w-2xl">
+                            <h3 className="text-xl font-bold text-white mb-4">Información Personal</h3>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
                                 <div className="space-y-2">
                                     <label className="text-sm text-white/60">Nombre Completo</label>
@@ -150,6 +236,7 @@ const Settings = () => {
                         </motion.div>
                     )}
 
+                    {/* --- PREFERENCES TAB --- */}
                     {activeTab === 'preferences' && (
                         <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-8 max-w-2xl">
 
@@ -208,6 +295,7 @@ const Settings = () => {
                         </motion.div>
                     )}
 
+                    {/* --- ACCOUNT TAB --- */}
                     {activeTab === 'account' && (
                         <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-6 max-w-2xl">
                             <div className="p-6 bg-gradient-to-br from-purple-900/20 to-blue-900/20 rounded-2xl border border-white/10 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
@@ -239,17 +327,19 @@ const Settings = () => {
                     )}
                 </div>
 
-                {/* Global Save Button - Static relative on mobile, absolute right on desktop */}
-                <div className="mt-8 md:mt-0 md:absolute md:bottom-8 md:right-8">
-                    <button
-                        onClick={handleSave}
-                        disabled={saving}
-                        className="w-full md:w-auto flex items-center justify-center gap-2 px-8 py-3 bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-bold rounded-xl shadow-lg shadow-cyan-900/20 hover:shadow-cyan-900/40 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50"
-                    >
-                        {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
-                        Guardar Cambios
-                    </button>
-                </div>
+                {/* Global Save Button - Only for tabs that need saving (Profile, Preferences) */}
+                {(activeTab === 'profile' || activeTab === 'preferences') && (
+                    <div className="mt-8 md:mt-0 md:absolute md:bottom-8 md:right-8 z-20">
+                        <button
+                            onClick={handleSaveProfile}
+                            disabled={saving}
+                            className="w-full md:w-auto flex items-center justify-center gap-2 px-8 py-3 bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-bold rounded-xl shadow-lg shadow-cyan-900/20 hover:shadow-cyan-900/40 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50"
+                        >
+                            {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
+                            Guardar Cambios
+                        </button>
+                    </div>
+                )}
 
             </div>
         </div>
