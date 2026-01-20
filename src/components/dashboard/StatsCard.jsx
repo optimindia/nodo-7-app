@@ -32,10 +32,10 @@ const StatsCard = ({ title, value, trend, trendValue, icon: Icon, delay = 0, inv
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay, duration: 0.5 }}
             whileHover={{ y: isHero ? -2 : -5 }}
-            className={`relative group overflow-hidden backdrop-blur-xl transition-all duration-300 border flex flex-col justify-between h-full
+            className={`relative group overflow-hidden backdrop-blur-xl transition-all duration-300 border flex flex-col h-full
                 ${isHero
-                    ? 'p-5 sm:p-6 rounded-[1.5rem] bg-gradient-to-br from-[#0F172A] via-[#083344] to-[#0B1121] border-cyan-500/30 shadow-[0_0_30px_-5px_rgba(6,182,212,0.2)] hover:shadow-[0_0_50px_-10px_rgba(6,182,212,0.3)] hover:border-cyan-400/50'
-                    : 'p-4 sm:p-5 rounded-2xl sm:rounded-3xl bg-white/5 border-white/10 hover:shadow-[0_0_30px_rgba(34,211,238,0.15)] hover:border-cyan-500/30'
+                    ? 'justify-center p-5 sm:p-6 rounded-[1.5rem] bg-gradient-to-br from-[#0F172A] via-[#083344] to-[#0B1121] border-cyan-500/30 shadow-[0_0_30px_-5px_rgba(6,182,212,0.2)] hover:shadow-[0_0_50px_-10px_rgba(6,182,212,0.3)] hover:border-cyan-400/50'
+                    : 'justify-between p-4 sm:p-5 rounded-2xl sm:rounded-3xl bg-white/5 border-white/10 hover:shadow-[0_0_30px_rgba(34,211,238,0.15)] hover:border-cyan-500/30'
                 }
             `}
         >
@@ -82,20 +82,20 @@ const StatsCard = ({ title, value, trend, trendValue, icon: Icon, delay = 0, inv
                 </div>
             </div>
 
-            <div className={`relative z-10 flex items-center gap-2 mt-auto pt-2`}>
-                <span className={`flex items-center text-[10px] sm:text-xs font-bold px-2 py-0.5 rounded-full 
-                    ${isHero
-                        ? (isGood ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-rose-500/20 text-rose-300 border border-rose-500/30')
-                        : `${defaultBgClass} ${defaultColorClass}`
-                    }
-                `}>
-                    {trend === 'up' ? <ArrowUpRight className="w-3 h-3 mr-1" /> : <ArrowDownRight className="w-3 h-3 mr-1" />}
-                    {trendValue}
-                </span>
-                <span className={`${isHero ? 'text-white/50 text-xs' : 'text-white/30 text-[10px]'}`}>
-                    {comparisonLabel || 'vs periodo anterior'}
-                </span>
-            </div>
+            {/* Only show comparison for non-hero cards */}
+            {!isHero && (
+                <div className="relative z-10 flex items-center gap-2 mt-auto pt-2">
+                    <span className={`flex items-center text-[10px] sm:text-xs font-bold px-2 py-0.5 rounded-full 
+                        ${defaultBgClass} ${defaultColorClass}
+                    `}>
+                        {trend === 'up' ? <ArrowUpRight className="w-3 h-3 mr-1" /> : <ArrowDownRight className="w-3 h-3 mr-1" />}
+                        {trendValue}
+                    </span>
+                    <span className="text-white/30 text-[10px]">
+                        {comparisonLabel || 'vs periodo anterior'}
+                    </span>
+                </div>
+            )}
         </motion.div>
     );
 };
