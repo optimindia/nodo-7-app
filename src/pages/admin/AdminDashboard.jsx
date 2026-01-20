@@ -28,70 +28,23 @@ const AdminDashboard = () => {
     const handleCreateUser = async (e) => {
         e.preventDefault();
         setCreateLoading(true);
-        let newUserId = null;
 
         try {
-            // 0. Pre-check: If reseller, do you have credits? (Client-side check to save an API call)
-            if (role === 'reseller' && newUser.role === 'client') {
-                // Assuming 'currentUserProfile' has the up-to-date credits from the hook
-                if ((currentUserProfile?.credits || 0) < 1) {
-                    throw new Error("No tienes créditos suficientes para crear un cliente.");
-                }
+            // Check Reseller Credits (Optional UI check, DB checks it too)
+            if (role === 'reseller' && (currentUserProfile?.credits || 0) < 1) {
+                throw new Error("No tienes créditos suficientes.");
             }
 
-            // Get current user ID for 'created_by'
-            const currentUserId = (await supabase.auth.getUser()).data.user.id;
-
-            // 1. Create User (Auth) - This is the most likely step to fail (duplicate email, weak password)
-            const { createClient } = await import('@supabase/supabase-js');
-            const tempSupabase = createClient(
-                import.meta.env.VITE_SUPABASE_URL,
-                import.meta.env.VITE_SUPABASE_ANON_KEY,
-                { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } }
-            );
-
-            const { data: authData, error: authError } = await tempSupabase.auth.signUp({
+            const { data, error } = await supabase.rpc('create_new_user', {
                 email: newUser.email,
                 password: newUser.password,
-                options: { data: { created_by: currentUserId } }
+                role_input: newUser.role,
+                credits_input: parseInt(newUser.credits || '0')
             });
 
-            if (authError) throw authError;
-            if (!authData.user) throw new Error("No se pudo crear el usuario");
+            if (error) throw error;
+            if (!data.success) throw new Error(data.message);
 
-            newUserId = authData.user.id; // Mark for potential rollback
-
-            // 2. Wait for Trigger (Profile creation)
-            await new Promise(r => setTimeout(r, 1000));
-
-            // 3. Update Profile Data
-            const { error: updateError } = await supabase
-                .from('profiles')
-                .update({
-                    role: newUser.role,
-                    credits: newUser.role === 'client' ? 0 : parseInt(newUser.credits.toString().replace(/\./g, '')),
-                    created_by: currentUserId
-                })
-                .eq('id', newUserId);
-
-            if (updateError) throw new Error("Error actualizando perfil: " + updateError.message);
-
-            // 4. CRITICAL: Deduct Credit (Only if we got here, meaning User + Profile exists)
-            if (role === 'reseller' && newUser.role === 'client') {
-                const { data: deduction, error: deductError } = await supabase.rpc('deduct_reseller_credit', { p_amount: 1 });
-
-                if (deductError || !deduction.success) {
-                    // DEDUCTION FAILED - ROLLBACK USER
-                    console.error("Deduction failed, rolling back user creation...");
-                    await supabase.rpc('delete_user_by_id', { target_user_id: newUserId }); // Needs Admin privs or Service Role, might fail if Reseller.
-                    // If Reseller can't delete, we have a "zombie" free user. 
-                    // Better approach: The Database Trigger for 'deduct_credit' is safer, but complexity increases.
-                    // For this app scale: This "Optimistic Creation" is better than "Lost Credits".
-                    throw new Error("Error procesando créditos: " + (deductError?.message || deduction?.message));
-                }
-            }
-
-            // Success
             setIsCreateModalOpen(false);
             setNewUser({ email: '', password: '', role: 'client', credits: 0 });
             refreshData();
@@ -99,9 +52,6 @@ const AdminDashboard = () => {
 
         } catch (error) {
             console.error("Create user error:", error);
-            // If we have a newUserId but failed later (e.g. profile update), we should ideally clean up too.
-            // But the most important requirement is: DONT DEDUCT IF CREATE FAILS.
-            // Since we moved deduction to the END, this is satisfied.
             alert('Error: ' + error.message);
         } finally {
             setCreateLoading(false);
@@ -349,8 +299,12 @@ const AdminDashboard = () => {
                     <div className="grid grid-cols-2 gap-4">
                         <Select label="Rol" value={newUser.role} onChange={e => setNewUser({ ...newUser, role: e.target.value })}>
                             <option value="client">Cliente</option>
-                            <option value="reseller">Revendedor</option>
-                            {!isReseller && <option value="admin">Admin</option>}
+                            {!isReseller && (
+                                <>
+                                    <option value="reseller">Revendedor</option>
+                                    <option value="admin">Admin</option>
+                                </>
+                            )}
                         </Select>
                         {newUser.role !== 'client' && (
                             <Input

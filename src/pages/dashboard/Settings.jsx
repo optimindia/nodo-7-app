@@ -67,70 +67,38 @@ const Settings = () => {
 
     const handleSaveProfile = async () => {
         setSaving(true);
-        setFeedback({ type: null, message: '' }); // Clear previous feedback
+        setFeedback({ type: null, message: '' });
 
         try {
             console.log("Iniciando guardado de perfil para:", user.id);
 
-            // 1. Check if profile exists
-            const { count, error: checkError } = await supabase
+            // Prepare payload
+            const updates = {
+                id: user.id, // Primary Key for Upsert
+                email: user.email, // Sync email just in case
+                full_name: formData.full_name,
+                username: formData.username,
+                bio: formData.bio,
+                currency: formData.currency,
+                language: formData.language,
+                notifications_enabled: formData.notifications_enabled,
+                updated_at: new Date()
+            };
+
+            // UPSERT: Handles both Update (if exists) and Insert (if new) atomically.
+            // This avoids "Row not found" or "Duplicate key" errors caused by RLS latency or race conditions.
+            const { data, error } = await supabase
                 .from('profiles')
-                .select('*', { count: 'exact', head: true })
-                .eq('id', user.id);
-
-            if (checkError) {
-                console.error("Error verificando existencia de perfil:", checkError);
-                throw checkError;
-            }
-
-            const profileExists = count > 0;
-            console.log("Perfil existe:", profileExists);
-
-            let error;
-
-            if (profileExists) {
-                // 2. Update existing
-                console.log("Actualizando perfil existente...");
-                const result = await supabase
-                    .from('profiles')
-                    .update({
-                        full_name: formData.full_name,
-                        username: formData.username,
-                        bio: formData.bio,
-                        currency: formData.currency,
-                        language: formData.language,
-                        notifications_enabled: formData.notifications_enabled,
-                        updated_at: new Date()
-                    })
-                    .eq('id', user.id);
-                error = result.error;
-            } else {
-                // 3. Insert new
-                console.log("Creando nuevo perfil...");
-                const result = await supabase
-                    .from('profiles')
-                    .insert([{
-                        id: user.id,
-                        email: user.email,
-                        full_name: formData.full_name,
-                        username: formData.username,
-                        bio: formData.bio,
-                        currency: formData.currency,
-                        language: formData.language,
-                        notifications_enabled: formData.notifications_enabled,
-                        created_at: new Date(),
-                        updated_at: new Date()
-                    }]);
-                error = result.error;
-            }
+                .upsert(updates, { onConflict: 'id' })
+                .select();
 
             if (error) {
-                console.error("Error en operación BD:", error);
+                console.error("Error en Upsert BD:", error);
                 throw error;
             }
 
-            console.log("Guardado exitoso");
-            setFeedback({ type: 'success', message: 'Perfil guardado correctamente' });
+            console.log("Guardado exitoso:", data);
+            setFeedback({ type: 'success', message: 'Perfil actualizado correctamente' });
 
             // Refresh local data to be sure
             await fetchProfile();

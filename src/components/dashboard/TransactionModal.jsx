@@ -7,7 +7,7 @@ import { useCategories } from '../../hooks/useCategories';
 import { useAuth } from '../../context/AuthContext';
 import { formatCurrency } from '../../utils/format';
 
-const TransactionModal = ({ isOpen, onClose, onTransactionAdded, userId, initialData }) => {
+const TransactionModal = ({ isOpen, onClose, onTransactionAdded, userId, initialData, wallets: propWallets }) => {
     const { user } = useAuth();
     const { goals } = useGoals();
     const { categories } = useCategories();
@@ -20,28 +20,37 @@ const TransactionModal = ({ isOpen, onClose, onTransactionAdded, userId, initial
     const [date, setDate] = useState(initialData?.date || new Date().toISOString().split('T')[0]);
     const [selectedGoal, setSelectedGoal] = useState(initialData?.goal_id || '');
 
-    // Wallets
-    const [wallets, setWallets] = useState([]);
+    // Wallets (Use props if available, otherwise fallback)
+    const [localWallets, setLocalWallets] = useState([]);
+    const activeWallets = propWallets || localWallets;
+
+    // Wallet Selector UI State
+    const [isWalletSelectorOpen, setIsWalletSelectorOpen] = useState(false);
     const [selectedWallet, setSelectedWallet] = useState(initialData?.wallet_id || '');
 
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const [success, setSuccess] = useState(false);
 
-    // Fetch Wallets on mount/open
+    // Fetch Wallets logic only if props not provided (Fallback)
     useEffect(() => {
+        if (propWallets) {
+            // If props provided, just ensure default selection if available
+            if (propWallets.length > 0 && !selectedWallet && !initialData?.wallet_id) setSelectedWallet(propWallets[0].id);
+            return;
+        }
+
         const fetchWallets = async () => {
             const targetUserId = user?.id || userId;
             if (!targetUserId) return;
-
             const { data } = await supabase.from('wallets').select('*').eq('user_id', targetUserId);
             if (data) {
-                setWallets(data);
+                setLocalWallets(data);
                 if (data.length > 0 && !selectedWallet) setSelectedWallet(data[0].id);
             }
         };
         if (isOpen) fetchWallets();
-    }, [isOpen, user, userId]);
+    }, [isOpen, user, userId, propWallets]);
 
     // Cleanup on close
     useEffect(() => {
@@ -52,6 +61,7 @@ const TransactionModal = ({ isOpen, onClose, onTransactionAdded, userId, initial
             setCategory('');
             setSuccess(false);
             setError(null);
+            setIsWalletSelectorOpen(false);
         }
     }, [isOpen]);
 
@@ -69,24 +79,14 @@ const TransactionModal = ({ isOpen, onClose, onTransactionAdded, userId, initial
 
     const handleAmountChange = (e) => {
         let val = e.target.value;
-        // Allow numbers and one comma
         val = val.replace(/[^0-9,]/g, '');
-
-        // Handle comma splitting
         const parts = val.split(',');
-
-        // Format integer part
         const integerPart = parts[0].replace(/\./g, '');
         const formattedInt = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-
         if (parts.length > 1) {
-            // Limit decimals to 2
             const decimalPart = parts[1].slice(0, 2);
             setAmount(`${formattedInt},${decimalPart}`);
         } else {
-            // If we just deleted a comma, we might have "1.000," -> "1.000"
-            // But if we are typing, just formatting int is enough
-            // However, checking if user typed comma
             if (e.nativeEvent.data === ',') {
                 setAmount(`${formattedInt},`);
             } else {
@@ -115,35 +115,27 @@ const TransactionModal = ({ isOpen, onClose, onTransactionAdded, userId, initial
             // 1. Transaction Operation (Insert/Update)
             let txOperation;
 
+            // FIX TIMEZONE: Append T12:00:00 to ensure date stays correct in all timezones
             const payload = {
                 user_id: targetUserId,
                 amount: rawAmount,
                 description: finalDesc,
                 type: type === 'deposit' ? 'deposit' : 'withdrawal',
                 category: finalCategory,
-                date,
+                date: new Date(date + 'T12:00:00').toISOString(),
                 wallet_id: selectedWallet,
                 goal_id: selectedGoal || null
             };
 
             if (initialData?.id) {
-                // Update
-                txOperation = await supabase
-                    .from('transactions')
-                    .update(payload)
-                    .eq('id', initialData.id);
+                txOperation = await supabase.from('transactions').update(payload).eq('id', initialData.id);
             } else {
-                // Insert
-                txOperation = await supabase
-                    .from('transactions')
-                    .insert([payload]);
+                txOperation = await supabase.from('transactions').insert([payload]);
             }
 
             const { error: txError } = txOperation;
             if (txError) throw txError;
 
-            // 2. Update Goal (Only on Create & Deposit)
-            // Prevent double counting on edits for now
             if (!initialData?.id && selectedGoal && type === 'deposit') {
                 const goal = goals.find(g => g.id === selectedGoal);
                 if (goal) {
@@ -165,8 +157,10 @@ const TransactionModal = ({ isOpen, onClose, onTransactionAdded, userId, initial
         }
     };
 
-
     if (!isOpen) return null;
+
+    // Find current wallet object
+    const currentWalletObj = activeWallets.find(w => w.id === selectedWallet);
 
     return (
         <AnimatePresence>
@@ -185,12 +179,13 @@ const TransactionModal = ({ isOpen, onClose, onTransactionAdded, userId, initial
                         animate={{ y: 0 }}
                         exit={{ y: '100%' }}
                         transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-                        // REMOVED OVERFLOW HIDDEN HERE to allow dropdowns to pop out
-                        className="relative w-full max-w-md bg-[#0f172a] md:rounded-3xl rounded-t-3xl border-t md:border border-white/10 shadow-2xl"
+                        // MOBILE: h-[100dvh], rounded-none, w-full
+                        // DESKTOP: md:h-auto, md:max-h-[85vh], md:rounded-3xl, max-w-md
+                        className="relative w-full h-[100dvh] md:h-auto md:max-h-[85vh] md:max-w-md bg-[#0f172a] md:rounded-3xl rounded-none border-t md:border border-white/10 shadow-2xl overflow-y-auto flex flex-col"
                     >
                         {/* Status Bar for Success */}
                         {success ? (
-                            <div className="h-[400px] flex flex-col items-center justify-center gap-4 bg-emerald-500/10">
+                            <div className="h-full md:h-[400px] flex flex-col items-center justify-center gap-4 bg-emerald-500/10">
                                 <motion.div
                                     initial={{ scale: 0 }} animate={{ scale: 1 }}
                                     className="w-20 h-20 bg-emerald-500 rounded-full flex items-center justify-center shadow-[0_0_30px_rgba(16,185,129,0.4)]"
@@ -200,10 +195,11 @@ const TransactionModal = ({ isOpen, onClose, onTransactionAdded, userId, initial
                                 <h3 className="text-2xl font-bold text-white">¡Guardado!</h3>
                             </div>
                         ) : (
-                            <form onSubmit={handleSubmit} className="p-6 pb-8">
+                            <form onSubmit={handleSubmit} className="p-4 md:p-6 pb-20 md:pb-8 flex-1">
                                 {/* Header */}
-                                <div className="flex justify-between items-center mb-6">
-                                    <div className="flex gap-1 p-1 bg-white/5 rounded-xl">
+                                <div className="flex justify-between items-center mb-6 md:mb-6 pt-2 md:pt-0">
+                                    <h2 className="text-white/60 font-bold text-lg md:hidden">Nueva Transacción</h2>
+                                    <div className="flex gap-1 p-1 bg-white/5 rounded-xl hidden md:flex">
                                         <button
                                             type="button"
                                             onClick={() => { setType('expense'); setCategory(''); }}
@@ -224,15 +220,33 @@ const TransactionModal = ({ isOpen, onClose, onTransactionAdded, userId, initial
                                     </button>
                                 </div>
 
+                                {/* Mobile Toggle (Visible only on mobile) */}
+                                <div className="flex gap-1 p-1 bg-white/5 rounded-xl mb-6 md:hidden">
+                                    <button
+                                        type="button"
+                                        onClick={() => { setType('expense'); setCategory(''); }}
+                                        className={`flex-1 py-3 rounded-lg text-sm font-bold transition-all ${type === 'expense' ? 'bg-pink-500 text-white shadow-lg' : 'text-white/40 hover:text-white'}`}
+                                    >
+                                        Gasto
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => { setType('deposit'); setCategory(''); }}
+                                        className={`flex-1 py-3 rounded-lg text-sm font-bold transition-all ${type === 'deposit' ? 'bg-emerald-500 text-white shadow-lg' : 'text-white/40 hover:text-white'}`}
+                                    >
+                                        Ingreso
+                                    </button>
+                                </div>
+
                                 {/* Hero Amount Input */}
-                                <div className="mb-8 text-center relative">
-                                    <span className="text-4xl font-bold text-white/40 absolute left-8 top-1/2 -translate-y-1/2">$</span>
+                                <div className="mb-6 md:mb-8 text-center relative">
+                                    <span className="text-2xl md:text-4xl font-bold text-white/40 absolute left-8 md:left-14 top-1/2 -translate-y-1/2">$</span>
                                     <input
                                         type="text"
                                         value={amount}
                                         onChange={handleAmountChange}
                                         placeholder="0,00"
-                                        className="w-full bg-transparent text-center text-6xl font-bold text-white placeholder:text-white/10 focus:outline-none"
+                                        className="w-full bg-transparent text-center text-5xl md:text-6xl font-bold text-white placeholder:text-white/10 focus:outline-none"
                                         autoFocus
                                         required
                                         inputMode="decimal"
@@ -245,7 +259,7 @@ const TransactionModal = ({ isOpen, onClose, onTransactionAdded, userId, initial
                                 </div>
 
                                 {/* Details Grid */}
-                                <div className="space-y-4">
+                                <div className="space-y-6 md:space-y-4">
                                     {/* Category Scroll */}
                                     <div>
                                         <label className="text-xs font-bold text-white/40 uppercase ml-1 mb-2 block">Categoría</label>
@@ -255,7 +269,7 @@ const TransactionModal = ({ isOpen, onClose, onTransactionAdded, userId, initial
                                                     key={cat.id}
                                                     type="button"
                                                     onClick={() => setCategory(cat.name)}
-                                                    className={`flex items-center gap-2 px-4 py-2 rounded-xl border whitespace-nowrap transition-all ${category === cat.name
+                                                    className={`flex items-center gap-2 px-4 py-3 md:py-2 rounded-xl border whitespace-nowrap transition-all ${category === cat.name
                                                         ? `bg-${cat.color}-500/20 border-${cat.color}-500 text-white shadow-[0_0_15px_rgba(0,0,0,0.3)]`
                                                         : 'bg-white/5 border-white/5 text-white/40 hover:bg-white/10'
                                                         }`}
@@ -274,47 +288,69 @@ const TransactionModal = ({ isOpen, onClose, onTransactionAdded, userId, initial
                                     </div>
 
                                     {/* Row: Wallet & Date */}
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div className="space-y-1 relative z-20">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div className="space-y-1 relative z-30">
                                             <label className="text-xs font-bold text-white/40 uppercase ml-1">Billetera</label>
+                                            {/* Custom Wallet Dropdown */}
                                             <div className="relative">
-                                                <Wallet className="absolute left-3 top-3 w-4 h-4 text-white/40 z-10" />
-                                                <select
-                                                    value={selectedWallet}
-                                                    onChange={e => setSelectedWallet(e.target.value)}
-                                                    className="w-full bg-white/5 border border-white/10 rounded-xl py-2.5 pl-9 pr-8 text-sm text-white focus:outline-none focus:border-cyan-500/50 appearance-none cursor-pointer hover:bg-white/10 transition-colors relative z-20"
-                                                    required
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setIsWalletSelectorOpen(!isWalletSelectorOpen)}
+                                                    className="w-full flex items-center justify-between bg-white/5 border border-white/10 rounded-xl py-3 md:py-2.5 px-3 text-sm text-white hover:bg-white/10 transition-colors"
                                                 >
-                                                    {wallets.length === 0 ? (
-                                                        <option value="" className="bg-[#0f172a] text-white/40">Cargando...</option>
-                                                    ) : (
-                                                        <>
-                                                            <option value="" className="bg-[#0f172a] text-white/40">Seleccionar...</option>
-                                                            {wallets.map(w => (
-                                                                <option key={w.id} value={w.id} className="bg-[#0f172a] text-white">
-                                                                    {w.name} ({formatCurrency(w.balance)})
-                                                                </option>
+                                                    <div className="flex items-center gap-2 truncate">
+                                                        {currentWalletObj ? (
+                                                            <>
+                                                                <div className="w-4 h-4 rounded-full shadow-sm" style={{ backgroundColor: currentWalletObj.color }} />
+                                                                <div className="flex flex-col items-start leading-none gap-0.5">
+                                                                    <span className="font-bold truncate max-w-[200px] md:max-w-[90px]">{currentWalletObj.name}</span>
+                                                                    <span className="text-[10px] text-white/50">{formatCurrency(currentWalletObj.balance || 0)}</span>
+                                                                </div>
+                                                            </>
+                                                        ) : (
+                                                            <span className="text-white/40">Seleccionar...</span>
+                                                        )}
+                                                    </div>
+                                                    <ArrowDownRight className={`w-4 h-4 text-white/40 transition-transform ${isWalletSelectorOpen ? 'rotate-180' : ''}`} />
+                                                </button>
+
+                                                {/* Dropdown Options */}
+                                                <AnimatePresence>
+                                                    {isWalletSelectorOpen && (
+                                                        <motion.div
+                                                            initial={{ opacity: 0, y: -10 }}
+                                                            animate={{ opacity: 1, y: 0 }}
+                                                            exit={{ opacity: 0, y: -10 }}
+                                                            className="absolute top-full left-0 right-0 mt-2 bg-[#1a2235] border border-white/10 rounded-xl shadow-2xl max-h-48 overflow-y-auto custom-scrollbar p-1 z-50"
+                                                        >
+                                                            {activeWallets.map(w => (
+                                                                <button
+                                                                    key={w.id}
+                                                                    type="button"
+                                                                    onClick={() => { setSelectedWallet(w.id); setIsWalletSelectorOpen(false); }}
+                                                                    className={`w-full flex items-center justify-between p-2 rounded-lg transition-colors ${selectedWallet === w.id ? 'bg-white/10' : 'hover:bg-white/5'}`}
+                                                                >
+                                                                    <div className="flex items-center gap-2">
+                                                                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: w.color }} />
+                                                                        <span className="text-sm font-medium text-white">{w.name}</span>
+                                                                    </div>
+                                                                    <span className="text-xs text-white/60 font-mono">{formatCurrency(w.balance || 0)}</span>
+                                                                </button>
                                                             ))}
-                                                        </>
+                                                        </motion.div>
                                                     )}
-                                                </select>
-                                                {/* Custom Arrow */}
-                                                <div className="absolute right-3 top-3 pointer-events-none z-30">
-                                                    <svg width="10" height="6" viewBox="0 0 10 6" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                                        <path d="M1 1L5 5L9 1" stroke="white" strokeOpacity="0.4" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                                                    </svg>
-                                                </div>
+                                                </AnimatePresence>
                                             </div>
                                         </div>
-                                        <div className="space-y-1">
+                                        <div className="space-y-1 relative z-20">
                                             <label className="text-xs font-bold text-white/40 uppercase ml-1">Fecha</label>
                                             <div className="relative">
-                                                <Calendar className="absolute left-3 top-3 w-4 h-4 text-white/40" />
+                                                <Calendar className="absolute left-3 top-3.5 md:top-3 w-4 h-4 text-white/40" />
                                                 <input
                                                     type="date"
                                                     value={date}
                                                     onChange={e => setDate(e.target.value)}
-                                                    className="w-full bg-white/5 border border-white/10 rounded-xl py-2.5 pl-9 pr-3 text-sm text-white focus:outline-none focus:border-cyan-500/50"
+                                                    className="w-full bg-white/5 border border-white/10 rounded-xl py-3 md:py-2.5 pl-9 pr-3 text-sm text-white focus:outline-none focus:border-cyan-500/50"
                                                 />
                                             </div>
                                         </div>

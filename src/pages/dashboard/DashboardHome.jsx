@@ -22,6 +22,16 @@ const DashboardHome = ({
     formatCurrency,
     refreshData
 }) => {
+    // Helper to parse date ensuring LOCAL time for YYYY-MM-DD strings (Fixes "Yesterday" bug)
+    const parseSmartDate = (dateStr) => {
+        if (!dateStr) return new Date();
+        // If strict YYYY-MM-DD, parse as Local Midnight manually
+        if (typeof dateStr === 'string' && dateStr.length === 10 && dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
+            const [year, month, day] = dateStr.split('-').map(Number);
+            return new Date(year, month - 1, day);
+        }
+        return new Date(dateStr); // Fallback for ISO strings
+    };
     // Props are now passed from Layout to avoid double fetching and enable global access
 
     // We can keep these local UI states
@@ -131,7 +141,7 @@ const DashboardHome = ({
 
         const filterByRange = (items, start, end) => {
             return items.filter(tx => {
-                const d = new Date(tx.date || tx.created_at);
+                const d = parseSmartDate(tx.date || tx.created_at);
                 return d >= start && d <= end;
             });
         };
@@ -177,7 +187,7 @@ const DashboardHome = ({
             isInitial: true // Flag to exclude from list if needed
         })).filter(tx => tx.amount > 0);
 
-        return [...transactions, ...initialBalances].sort((a, b) => new Date(b.date || b.created_at) - new Date(a.date || a.created_at));
+        return [...transactions, ...initialBalances].sort((a, b) => parseSmartDate(b.date || b.created_at) - parseSmartDate(a.date || a.created_at));
     }, [transactions, wallets]);
 
     const dynamicStats = calculateStats(allMovements, timeRange);
@@ -255,7 +265,7 @@ const DashboardHome = ({
             // 5. Date Filter (Simplified)
             let matchesDate = true;
             if (filters.dateRange) {
-                const txDate = new Date(tx.date || tx.created_at);
+                const txDate = parseSmartDate(tx.date || tx.created_at);
                 const now = new Date();
                 const daysDiff = (now - txDate) / (1000 * 60 * 60 * 24);
                 if (filters.dateRange === '7days' && daysDiff > 7) matchesDate = false;
@@ -612,7 +622,7 @@ const DashboardHome = ({
                                                             {/* Meta: Date + Badges */}
                                                             <div className="flex flex-wrap items-center gap-2 text-xs text-white/40 font-medium">
                                                                 <span className="truncate">
-                                                                    {new Date(tx.date || tx.created_at).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })}
+                                                                    {parseSmartDate(tx.date || tx.created_at).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })}
                                                                 </span>
 
                                                                 {/* Mobile: Compact Wallet Dot */}
@@ -680,7 +690,9 @@ const DashboardHome = ({
                 onClose={handleCloseModal}
                 onTransactionAdded={handleTransactionSuccess}
                 initialData={transactionToEdit}
+
                 userId={null} // Auth handled internally now
+                wallets={wallets} // Pass calculated wallets
             />
         </div>
     );
