@@ -40,7 +40,8 @@ const DashboardHome = ({
     const [showAllHistory, setShowAllHistory] = useState(false);
 
     // NEW: Time Range State (Moved to top to fix Hook Rule)
-    const [timeRange, setTimeRange] = useState('this_month'); // 'this_month', 'last_month', 'last_30_days', 'this_week', 'today', 'year'
+    const [timeRange, setTimeRange] = useState('this_month'); // 'this_month', 'last_month', 'custom', 'this_week', 'today', 'year'
+    const [customDateRange, setCustomDateRange] = useState({ start: '', end: '' });
     const [statView, setStatView] = useState('expense'); // 'expense' | 'income'
 
     const handleTransactionSuccess = () => {
@@ -135,13 +136,31 @@ const DashboardHome = ({
             currentEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
             prevStart = new Date(now.getFullYear(), now.getMonth() - 2, 1);
             prevEnd = new Date(now.getFullYear(), now.getMonth() - 1, 0, 23, 59, 59);
-        } else if (range === 'last_30_days') {
-            currentEnd = now;
-            currentStart = new Date(now);
-            currentStart.setDate(now.getDate() - 30);
-            prevEnd = new Date(currentStart);
-            prevStart = new Date(prevEnd);
-            prevStart.setDate(prevEnd.getDate() - 30);
+        } else if (range === 'custom') {
+            if (!customDateRange.start || !customDateRange.end) {
+                // If no date selected, show all or nothing? Let's default to nothing or current month to avoid errors
+                // For now, return safety dates
+                currentStart = new Date();
+                currentEnd = new Date();
+                prevStart = new Date();
+                prevEnd = new Date();
+            } else {
+                currentStart = new Date(customDateRange.start);
+                // Adjust for local time zone - if user picks '2023-01-01', it considers UTC 00:00 usually. 
+                // Let's assume input value 'YYYY-MM-DD' is local start of day.
+                // We want end of day for the end date.
+                const endDate = new Date(customDateRange.end);
+                // Fix timezone offset for simple string parsing or set hours
+                currentStart.setHours(0, 0, 0, 0);
+
+                currentEnd = new Date(customDateRange.end);
+                currentEnd.setHours(23, 59, 59, 999);
+
+                // Calculate previous period duration
+                const duration = currentEnd - currentStart; // in ms
+                prevEnd = new Date(currentStart.getTime() - 1);
+                prevStart = new Date(prevEnd.getTime() - duration);
+            }
         } else if (range === 'this_week') {
             const day = now.getDay() || 7; // Mon=1, Sun=7
             currentStart = new Date(now);
@@ -205,6 +224,20 @@ const DashboardHome = ({
 
     const dynamicStats = calculateStats(transactions, timeRange);
 
+    const getComparisonLabel = (range) => {
+        switch (range) {
+            case 'today': return 'vs ayer';
+            case 'this_week': return 'vs semana anterior';
+            case 'this_month': return 'vs mes anterior';
+            case 'last_month': return 'vs mes anterior';
+            case 'year': return 'vs año anterior';
+            case 'custom': return 'vs periodo anterior';
+            default: return 'vs periodo anterior';
+        }
+    };
+
+    const comparisonLabel = getComparisonLabel(timeRange);
+
     return (
         <div className="space-y-8 pb-20">
             {/* Header / Actions */}
@@ -214,38 +247,68 @@ const DashboardHome = ({
                         initial={{ opacity: 0, height: 0 }}
                         animate={{ opacity: 1, height: 'auto' }}
                         exit={{ opacity: 0, height: 0 }}
-                        className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4"
+                        className="flex flex-col gap-4 mb-4"
                     >
-                        {/* Time Range Selector */}
-                        <div className="flex bg-white/5 p-1 rounded-xl border border-white/10 w-fit overflow-x-auto max-w-full">
-                            {[
-                                { id: 'today', label: 'Hoy' },
-                                { id: 'this_week', label: 'Semana' },
-                                { id: 'this_month', label: 'Este Mes' },
-                                { id: 'last_month', label: 'Mes Pasado' },
-                                { id: 'last_30_days', label: '30 Días' },
-                                { id: 'year', label: 'Año' }
-                            ].map(range => (
-                                <button
-                                    key={range.id}
-                                    onClick={() => setTimeRange(range.id)}
-                                    className={`px-3 md:px-4 py-2 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${timeRange === range.id
-                                        ? 'bg-cyan-500 text-black shadow-lg shadow-cyan-500/20'
-                                        : 'text-white/60 hover:text-white hover:bg-white/5'
-                                        }`}
-                                >
-                                    {range.label}
-                                </button>
-                            ))}
+                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                            {/* Time Range Selector */}
+                            <div className="flex bg-white/5 p-1 rounded-xl border border-white/10 w-fit overflow-x-auto max-w-full">
+                                {[
+                                    { id: 'today', label: 'Hoy' },
+                                    { id: 'this_week', label: 'Semana' },
+                                    { id: 'this_month', label: 'Este Mes' },
+                                    { id: 'last_month', label: 'Mes Pasado' },
+                                    { id: 'custom', label: 'Personalizado' }, // Replaced last_30_days
+                                    { id: 'year', label: 'Año' }
+                                ].map(range => (
+                                    <button
+                                        key={range.id}
+                                        onClick={() => setTimeRange(range.id)}
+                                        className={`px-3 md:px-4 py-2 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${timeRange === range.id
+                                            ? 'bg-cyan-500 text-black shadow-lg shadow-cyan-500/20'
+                                            : 'text-white/60 hover:text-white hover:bg-white/5'
+                                            }`}
+                                    >
+                                        {range.label}
+                                    </button>
+                                ))}
+                            </div>
+
+                            <button
+                                onClick={() => setIsModalOpen(true)}
+                                className="flex items-center gap-2 px-6 py-3 bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 rounded-xl hover:bg-cyan-500/20 transition-all font-bold text-sm"
+                            >
+                                <Plus className="w-4 h-4" />
+                                Nueva Transacción
+                            </button>
                         </div>
 
-                        <button
-                            onClick={() => setIsModalOpen(true)}
-                            className="flex items-center gap-2 px-6 py-3 bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 rounded-xl hover:bg-cyan-500/20 transition-all font-bold text-sm"
-                        >
-                            <Plus className="w-4 h-4" />
-                            Nueva Transacción
-                        </button>
+                        {/* Custom Date Inputs */}
+                        {timeRange === 'custom' && (
+                            <motion.div
+                                initial={{ opacity: 0, y: -10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                className="flex items-center gap-4 bg-white/5 p-3 rounded-xl border border-white/10 w-fit"
+                            >
+                                <div className="flex items-center gap-2">
+                                    <span className="text-white/40 text-xs font-bold uppercase">Desde:</span>
+                                    <input
+                                        type="date"
+                                        value={customDateRange.start}
+                                        onChange={(e) => setCustomDateRange(prev => ({ ...prev, start: e.target.value }))}
+                                        className="bg-black/20 border border-white/10 rounded-lg px-3 py-1 text-white text-sm focus:outline-none focus:border-cyan-500/50"
+                                    />
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <span className="text-white/40 text-xs font-bold uppercase">Hasta:</span>
+                                    <input
+                                        type="date"
+                                        value={customDateRange.end}
+                                        onChange={(e) => setCustomDateRange(prev => ({ ...prev, end: e.target.value }))}
+                                        className="bg-black/20 border border-white/10 rounded-lg px-3 py-1 text-white text-sm focus:outline-none focus:border-cyan-500/50"
+                                    />
+                                </div>
+                            </motion.div>
+                        )}
                     </motion.div>
                 )}
             </AnimatePresence>
@@ -270,6 +333,7 @@ const DashboardHome = ({
                                 trendValue="--"
                                 icon={Wallet}
                                 delay={0}
+                                comparisonLabel={comparisonLabel}
                             />
 
                             {/* Card 2: Dynamic (Expenses or Income) */}
@@ -299,6 +363,7 @@ const DashboardHome = ({
                                     inverseTrend={statView === 'expense'}
                                     icon={statView === 'expense' ? ArrowUpRight : TrendingUp}
                                     delay={0.1}
+                                    comparisonLabel={comparisonLabel}
                                 />
                             </div>
 
@@ -310,6 +375,7 @@ const DashboardHome = ({
                                 trendValue="Est."
                                 icon={TrendingUp}
                                 delay={0.2}
+                                comparisonLabel={comparisonLabel}
                             />
 
                             {/* Card 4: Net Flow */}
@@ -320,6 +386,7 @@ const DashboardHome = ({
                                 trendValue={dynamicStats.balanceChange.value >= 0 ? "+Ganancia" : "-Pérdida"}
                                 icon={Users}
                                 delay={0.3}
+                                comparisonLabel={comparisonLabel}
                             />
                         </div>
 
@@ -339,7 +406,7 @@ const DashboardHome = ({
                                 <ComparisonChart transactions={transactions} formatCurrency={formatCurrency} />
                             </div>
                             <div className="lg:col-span-1">
-                                <CompositionChart transactions={transactions} formatCurrency={formatCurrency} />
+                                <CompositionChart wallets={wallets} formatCurrency={formatCurrency} />
                             </div>
                         </div>
                     </motion.div>
@@ -439,7 +506,7 @@ const DashboardHome = ({
                                                 animate={{ opacity: 1, y: 0, scale: 1 }}
                                                 exit={{ opacity: 0, scale: 0.95, transition: { duration: 0.2 } }}
                                                 whileHover={{ scale: 1.01, backgroundColor: 'rgba(255,255,255,0.08)' }}
-                                                className="relative p-5 rounded-3xl bg-white/5 border border-white/5 transition-all group cursor-default overflow-hidden"
+                                                className="relative p-3 sm:p-5 rounded-2xl sm:rounded-3xl bg-white/5 border border-white/5 transition-all group cursor-default overflow-hidden"
                                             >
                                                 {/* Wallet Color Indicator Strip */}
                                                 {wallet && (
@@ -449,91 +516,84 @@ const DashboardHome = ({
                                                     />
                                                 )}
 
-                                                <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-0 justify-between relative z-10 pl-2">
+                                                {/* COMPACT ROW LAYOUT */}
+                                                <div className="flex items-center gap-3 sm:gap-4 pl-2 relative z-10">
 
-                                                    {/* LEFT SIDE: Icon + Info */}
-                                                    <div className="flex items-start gap-4">
-                                                        {/* Icon */}
-                                                        <div className={`w-12 h-12 sm:w-14 sm:h-14 shrink-0 rounded-2xl flex items-center justify-center shadow-lg ${isIncome
-                                                            ? 'bg-emerald-500/10 text-emerald-400 shadow-emerald-500/10'
-                                                            : 'bg-rose-500/10 text-rose-400 shadow-rose-500/10'
-                                                            }`}>
-                                                            <ArrowUpRight className={`w-6 h-6 sm:w-7 sm:h-7 stroke-[2.5px] ${!isIncome ? 'rotate-45' : 'rotate-[135deg]'}`} />
-                                                        </div>
-
-                                                        {/* Content */}
-                                                        <div className="flex-1 min-w-0">
-                                                            {/* Title Row */}
-                                                            <div className="flex items-start justify-between gap-4">
-                                                                <div className="text-base sm:text-lg font-bold text-white truncate break-words">
-                                                                    {tx.description || tx.category || (isIncome ? 'Ingreso' : 'Gasto')}
-                                                                </div>
-
-                                                                {/* MOBILE ONLY: Amount */}
-                                                                <span className={`sm:hidden text-lg font-bold tabular-nums tracking-tight whitespace-nowrap ${isIncome ? 'text-emerald-400' : 'text-white'
-                                                                    }`}>
-                                                                    {isIncome ? '+' : '-'}{formatCurrency(tx.amount)}
-                                                                </span>
-                                                            </div>
-
-                                                            {/* Badges Row - Wrap on mobile */}
-                                                            <div className="flex flex-wrap items-center gap-2 mt-2">
-                                                                <span className={`text-[10px] px-2 py-0.5 rounded-md font-bold uppercase tracking-wide border ${isIncome ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-rose-500/10 border-rose-500/20 text-rose-400'
-                                                                    }`}>
-                                                                    {tx.type === 'deposit' ? 'Ingreso' : tx.type === 'yield' ? 'Rendimiento' : 'Gasto'}
-                                                                </span>
-
-                                                                {wallet && (
-                                                                    <span className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-md font-bold uppercase tracking-wide border bg-white/5 border-white/10 text-white/60">
-                                                                        <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: wallet.color }} />
-                                                                        {wallet.name}
-                                                                    </span>
-                                                                )}
-
-                                                                {goal && (
-                                                                    <span className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-md font-bold uppercase tracking-wide border bg-purple-500/10 border-purple-500/20 text-purple-400">
-                                                                        🎯 {goal.title}
-                                                                    </span>
-                                                                )}
-                                                            </div>
-
-                                                            {/* Date - Below badges on mobile */}
-                                                            <div className="mt-2 sm:hidden text-xs text-white/30 font-medium">
-                                                                {new Date(tx.date || tx.created_at).toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' })}
-                                                            </div>
-                                                        </div>
+                                                    {/* Icon */}
+                                                    <div className={`w-10 h-10 sm:w-14 sm:h-14 shrink-0 rounded-2xl flex items-center justify-center shadow-lg ${isIncome
+                                                        ? 'bg-emerald-500/10 text-emerald-400 shadow-emerald-500/10'
+                                                        : 'bg-rose-500/10 text-rose-400 shadow-rose-500/10'
+                                                        }`}>
+                                                        <ArrowUpRight className={`w-5 h-5 sm:w-7 sm:h-7 stroke-[2.5px] ${!isIncome ? 'rotate-45' : 'rotate-[135deg]'}`} />
                                                     </div>
 
-                                                    {/* RIGHT SIDE (Desktop): Amount + Date + Actions */}
-                                                    <div className="flex items-center justify-between sm:justify-end gap-6 sm:pl-0 mt-2 sm:mt-0 pt-3 sm:pt-0 border-t border-white/10 sm:border-0">
-                                                        {/* Actions (Mobile: Left aligned in footer / Desktop: Right aligned) */}
-                                                        <div className={`sm:hidden flex items-center gap-2`}>
-                                                            <button onClick={() => handleEdit(tx)} className="p-2 rounded-lg bg-white/5 text-white hover:bg-cyan-500/20 hover:text-cyan-400 transition-colors">
-                                                                <Pencil className="w-4 h-4" />
-                                                            </button>
-                                                            <button onClick={() => handleDelete(tx.id)} className="p-2 rounded-lg bg-white/5 text-white hover:bg-rose-500/20 hover:text-rose-400 transition-colors">
-                                                                <Trash2 className="w-4 h-4" />
-                                                            </button>
-                                                        </div>
+                                                    {/* Content Container */}
+                                                    <div className="flex-1 min-w-0 flex flex-col justify-center">
 
-                                                        {/* Desktop Content Group */}
-                                                        <div className="hidden sm:flex items-center gap-6">
-                                                            <span className="text-xs text-white/30 font-medium">
-                                                                {new Date(tx.date || tx.created_at).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}
-                                                            </span>
-
-                                                            <span className={`text-xl font-bold tabular-nums tracking-tight ${isIncome ? 'text-emerald-400' : 'text-white'
-                                                                }`}>
+                                                        {/* Top Row: Title & Amount */}
+                                                        <div className="flex justify-between items-start gap-2">
+                                                            <div className="font-bold text-white text-sm sm:text-lg truncate leading-tight">
+                                                                {tx.description || tx.category || (isIncome ? 'Ingreso' : 'Gasto')}
+                                                            </div>
+                                                            <span className={`font-bold text-sm sm:text-xl tabular-nums tracking-tight whitespace-nowrap ${isIncome ? 'text-emerald-400' : 'text-white'}`}>
                                                                 {isIncome ? '+' : '-'}{formatCurrency(tx.amount)}
                                                             </span>
+                                                        </div>
 
-                                                            <div className={`flex items-center gap-2 transition-all transform ${isSearching || showAllHistory ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-4 group-hover:opacity-100 group-hover:translate-x-0'}`}>
-                                                                <button onClick={() => handleEdit(tx)} className="p-2.5 rounded-xl bg-white/10 text-white hover:bg-cyan-500/20 hover:text-cyan-400 transition-colors">
-                                                                    <Pencil className="w-4 h-4" />
-                                                                </button>
-                                                                <button onClick={() => handleDelete(tx.id)} className="p-2.5 rounded-xl bg-white/10 text-white hover:bg-rose-500/20 hover:text-rose-400 transition-colors">
-                                                                    <Trash2 className="w-4 h-4" />
-                                                                </button>
+                                                        {/* Bottom Row: Metadata & Actions */}
+                                                        <div className="flex justify-between items-end mt-1 sm:mt-2">
+
+                                                            {/* Meta: Date + Badges */}
+                                                            <div className="flex flex-wrap items-center gap-2 text-xs text-white/40 font-medium">
+                                                                <span className="truncate">
+                                                                    {new Date(tx.date || tx.created_at).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })}
+                                                                </span>
+
+                                                                {/* Mobile: Compact Wallet Dot */}
+                                                                {wallet && (
+                                                                    <div className="flex items-center gap-1 sm:hidden">
+                                                                        <span className="w-1 h-1 rounded-full bg-white/20" />
+                                                                        <div className="w-2 h-2 rounded-full" style={{ backgroundColor: wallet.color }} />
+                                                                        <span className="truncate max-w-[80px]">{wallet.name}</span>
+                                                                    </div>
+                                                                )}
+
+                                                                {/* Desktop: Full Badges (Restoring original desktop badge logic if needed, or keeping it clean) */}
+                                                                {/* We can keep the original badge logic hidden on mobile and visible on desktop */}
+                                                                <div className="hidden sm:flex items-center gap-2">
+                                                                    <span className={`text-[10px] px-2 py-0.5 rounded-md font-bold uppercase tracking-wide border ${isIncome ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-rose-500/10 border-rose-500/20 text-rose-400'}`}>
+                                                                        {tx.type === 'deposit' ? 'Ingreso' : tx.type === 'yield' ? 'Rendimiento' : 'Gasto'}
+                                                                    </span>
+                                                                    {wallet && (
+                                                                        <span className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-md font-bold uppercase tracking-wide border bg-white/5 border-white/10 text-white/60">
+                                                                            <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: wallet.color }} />
+                                                                            {wallet.name}
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+
+                                                            {/* Actions (Mobile: Compact Inline | Desktop: Standard) */}
+                                                            <div className="flex items-center gap-1 sm:gap-2">
+                                                                {/* Mobile Actions: Simple icons */}
+                                                                <div className="flex sm:hidden items-center gap-3 ml-2">
+                                                                    <button onClick={() => handleEdit(tx)} className="text-white/30 hover:text-cyan-400 p-1">
+                                                                        <Pencil className="w-4 h-4" />
+                                                                    </button>
+                                                                    <button onClick={() => handleDelete(tx.id)} className="text-white/30 hover:text-rose-400 p-1">
+                                                                        <Trash2 className="w-4 h-4" />
+                                                                    </button>
+                                                                </div>
+
+                                                                {/* Desktop Actions: The fancy ones */}
+                                                                <div className={`hidden sm:flex items-center gap-2 transition-all transform ${isSearching || showAllHistory ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-4 group-hover:opacity-100 group-hover:translate-x-0'}`}>
+                                                                    <button onClick={() => handleEdit(tx)} className="p-2.5 rounded-xl bg-white/10 text-white hover:bg-cyan-500/20 hover:text-cyan-400 transition-colors">
+                                                                        <Pencil className="w-4 h-4" />
+                                                                    </button>
+                                                                    <button onClick={() => handleDelete(tx.id)} className="p-2.5 rounded-xl bg-white/10 text-white hover:bg-rose-500/20 hover:text-rose-400 transition-colors">
+                                                                        <Trash2 className="w-4 h-4" />
+                                                                    </button>
+                                                                </div>
                                                             </div>
                                                         </div>
                                                     </div>

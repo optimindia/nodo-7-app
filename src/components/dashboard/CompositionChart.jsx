@@ -1,45 +1,32 @@
-import React, { useMemo } from 'react';
-import { motion } from 'framer-motion';
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
+import React, { useMemo, useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
 
-const CompositionChart = ({ transactions, formatCurrency }) => {
+const CompositionChart = ({ wallets = [], formatCurrency }) => {
+    const [activeIndex, setActiveIndex] = useState(null);
+
     const data = useMemo(() => {
-        const deposits = transactions
-            .filter(tx => tx.type === 'deposit')
-            .reduce((acc, tx) => acc + Number(tx.amount), 0);
+        // Filter out wallets with 0 or negative balance for the chart to look good?
+        // Usually better to show positive balances.
+        return wallets
+            .filter(w => Number(w.balance) > 0)
+            .map(w => ({
+                name: w.name,
+                value: Number(w.balance),
+                color: w.color || '#fff' // Fallback color
+            }))
+            .sort((a, b) => b.value - a.value); // Sort by value desc
+    }, [wallets]);
 
-        const yields = transactions
-            .filter(tx => tx.type === 'yield')
-            .reduce((acc, tx) => acc + Number(tx.amount), 0);
+    const total = wallets.reduce((acc, w) => acc + Number(w.balance), 0);
+    const activeItem = activeIndex !== null ? data[activeIndex] : null;
 
-        // Only show if there's data
-        if (deposits === 0 && yields === 0) return [];
+    const onPieEnter = (_, index) => {
+        setActiveIndex(index);
+    };
 
-        return [
-            { name: 'Depósitos', value: deposits, color: '#3b82f6' }, // Blue
-            { name: 'Rendimientos', value: yields, color: '#22d3ee' }, // Cyan
-        ];
-    }, [transactions]);
-
-    const total = data.reduce((acc, item) => acc + item.value, 0);
-
-    const CustomTooltip = ({ active, payload }) => {
-        if (active && payload && payload.length) {
-            const percent = ((payload[0].value / total) * 100).toFixed(1);
-            return (
-                <div className="bg-[#030712]/90 border border-white/10 p-3 rounded-lg backdrop-blur-md text-xs shadow-xl">
-                    <div className="flex items-center gap-2 mb-1">
-                        <div className="w-2 h-2 rounded-full" style={{ backgroundColor: payload[0].payload.color }} />
-                        <p className="text-white font-bold">{payload[0].name}</p>
-                    </div>
-                    <p className="text-white/80">
-                        {formatCurrency ? formatCurrency(payload[0].value) : payload[0].value}
-                        <span className="text-white/40 ml-2">({percent}%)</span>
-                    </p>
-                </div>
-            );
-        }
-        return null;
+    const onPieLeave = () => {
+        setActiveIndex(null);
     };
 
     return (
@@ -50,8 +37,8 @@ const CompositionChart = ({ transactions, formatCurrency }) => {
             className="glass-panel p-6 rounded-3xl border border-white/10 bg-white/5 backdrop-blur-xl h-[400px] flex flex-col relative overflow-hidden"
         >
             <div className="mb-2 relative z-10">
-                <h3 className="text-lg font-bold text-white">Fuentes de Ingreso</h3>
-                <p className="text-white/40 text-xs">Composición de tu capital</p>
+                <h3 className="text-lg font-bold text-white">Distribución de Capital</h3>
+                <p className="text-white/40 text-xs">Balance por billetera</p>
             </div>
 
             <div className="flex-1 w-full min-h-0 relative z-10 flex items-center justify-center">
@@ -63,43 +50,99 @@ const CompositionChart = ({ transactions, formatCurrency }) => {
                                     data={data}
                                     cx="50%"
                                     cy="50%"
-                                    innerRadius={60}
-                                    outerRadius={80}
-                                    paddingAngle={5}
+                                    innerRadius={75}
+                                    outerRadius={95}
+                                    paddingAngle={4}
                                     dataKey="value"
                                     stroke="none"
+                                    onMouseEnter={onPieEnter}
+                                    onMouseLeave={onPieLeave}
+                                    onClick={onPieEnter} // For mobile tap
                                 >
                                     {data.map((entry, index) => (
-                                        <Cell key={`cell-${index}`} fill={entry.color} />
+                                        <Cell
+                                            key={`cell-${index}`}
+                                            fill={entry.color}
+                                            className="transition-all duration-300 outline-none"
+                                            fillOpacity={activeIndex === null || activeIndex === index ? 1 : 0.3}
+                                            style={{
+                                                filter: activeIndex === index ? `drop-shadow(0 0 10px ${entry.color}40)` : 'none',
+                                                transform: activeIndex === index ? 'scale(1.02)' : 'scale(1)',
+                                                transformOrigin: 'center'
+                                            }}
+                                        />
                                     ))}
                                 </Pie>
-                                <Tooltip content={<CustomTooltip />} />
                             </PieChart>
                         </ResponsiveContainer>
-                        {/* Center Text */}
-                        <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                            <span className="text-xs text-white/40 uppercase tracking-widest">Total</span>
-                            <span className="text-lg font-bold text-white">
-                                {formatCurrency ? formatCurrency(total) : total}
-                            </span>
+
+                        {/* Center Info - Smart Interaction */}
+                        <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none px-8 text-center">
+                            <AnimatePresence mode="wait">
+                                {activeItem ? (
+                                    <motion.div
+                                        key="active"
+                                        initial={{ opacity: 0, scale: 0.9 }}
+                                        animate={{ opacity: 1, scale: 1 }}
+                                        exit={{ opacity: 0, scale: 0.9 }}
+                                        className="flex flex-col items-center"
+                                    >
+                                        <span className="text-xs font-bold text-white/60 mb-1 px-2 py-0.5 rounded-full bg-white/5 border border-white/5" style={{ color: activeItem.color, borderColor: `${activeItem.color}20`, backgroundColor: `${activeItem.color}10` }}>
+                                            {activeItem.name}
+                                        </span>
+                                        <span className="text-xl font-bold text-white tracking-tight">
+                                            {formatCurrency ? formatCurrency(activeItem.value) : activeItem.value}
+                                        </span>
+                                        <span className="text-xs text-white/40 font-medium">
+                                            {((activeItem.value / total) * 100).toFixed(1)}%
+                                        </span>
+                                    </motion.div>
+                                ) : (
+                                    <motion.div
+                                        key="total"
+                                        initial={{ opacity: 0, scale: 0.9 }}
+                                        animate={{ opacity: 1, scale: 1 }}
+                                        exit={{ opacity: 0, scale: 0.9 }}
+                                        className="flex flex-col items-center"
+                                    >
+                                        <span className="text-[10px] uppercase tracking-[0.2em] text-white/40 mb-1">Total</span>
+                                        <span className="text-2xl font-bold text-white tracking-tight">
+                                            {formatCurrency ? formatCurrency(total) : total}
+                                        </span>
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
                         </div>
                     </div>
                 ) : (
-                    <div className="text-white/20 text-sm">Sin datos suficientes</div>
+                    <div className="text-white/20 text-sm flex flex-col items-center justify-center text-center gap-2">
+                        <div className="w-16 h-16 rounded-full border-4 border-white/5 border-t-white/10 animate-pulse box-border" />
+                        <span>Sin fondos aún</span>
+                    </div>
                 )}
             </div>
 
-            {/* Legend */}
-            <div className="mt-4 flex flex-col gap-2 relative z-10">
+            {/* Legend - Scrollable if many wallets */}
+            <div className="mt-4 flex flex-col gap-2 relative z-10 max-h-[100px] overflow-y-auto pr-1 custom-scrollbar">
                 {data.map((item, i) => (
-                    <div key={i} className="flex items-center justify-between text-xs">
+                    <div
+                        key={i}
+                        className={`flex items-center justify-between text-xs transition-opacity duration-200 ${activeIndex !== null && activeIndex !== i ? 'opacity-30' : 'opacity-100'}`}
+                        onMouseEnter={() => setActiveIndex(i)}
+                        onMouseLeave={() => setActiveIndex(null)}
+                    >
                         <div className="flex items-center gap-2">
                             <div className="w-2 h-2 rounded-full" style={{ backgroundColor: item.color }} />
-                            <span className="text-white/60">{item.name}</span>
+                            <span className="text-white/70 font-medium">{item.name}</span>
                         </div>
-                        <span className="text-white font-medium">
-                            {((item.value / total) * 100).toFixed(0)}%
-                        </span>
+                        <div className="flex items-center gap-2">
+                            <span className="text-white/40 tabular-nums">
+                                {formatCurrency ? formatCurrency(item.value) : item.value}
+                            </span>
+                            <span className="text-white font-bold w-8 text-right">
+                                {((item.value / total) * 100).toFixed(0)}%
+                            </span>
+                        </div>
                     </div>
                 ))}
             </div>
