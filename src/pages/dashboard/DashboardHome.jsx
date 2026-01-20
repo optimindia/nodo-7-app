@@ -48,89 +48,6 @@ const DashboardHome = ({
     // Optimistic Deletion State
     const [optimisticDeletedIds, setOptimisticDeletedIds] = useState([]);
 
-    const handleTransactionSuccess = () => {
-        // Trigger background refresh
-        if (typeof refreshData === 'function') refreshData();
-    };
-
-    const handleEdit = (tx) => {
-        setTransactionToEdit(tx);
-        setIsModalOpen(true);
-    };
-
-    const handleDelete = async (id) => {
-        if (!window.confirm('¿Estás seguro de que quieres eliminar esta transacción?')) return;
-
-        // 1. Optimistic Update: Hide immediately
-        setOptimisticDeletedIds(prev => [...prev, id]);
-
-        try {
-            const { error } = await supabase.from('transactions').delete().eq('id', id);
-            if (error) throw error;
-
-            // 2. Background Refresh to sync stats
-            if (typeof refreshData === 'function') refreshData();
-
-        } catch (error) {
-            console.error('Error deleting transaction:', error);
-            alert('Error al eliminar la transacción');
-            // Revert if failed
-            setOptimisticDeletedIds(prev => prev.filter(pid => pid !== id));
-        }
-    };
-
-    const handleCloseModal = () => {
-        setIsModalOpen(false);
-        setTransactionToEdit(null);
-    };
-
-    if (loading) {
-        return (
-            <div className="flex h-[50vh] items-center justify-center">
-                <Loader2 className="w-10 h-10 text-cyan-400 animate-spin" />
-            </div>
-        );
-    }
-
-    // Determine if we are in "Search Mode"
-    // Use either the local search query OR the one passed from global layout if provided
-    const activeSearchQuery = searchQuery || globalSearchQuery;
-    const isSearching = !!activeSearchQuery || filterType !== 'all' || filters.walletId || filters.minAmount || filters.maxAmount || filters.dateRange;
-
-    // Filter Logic
-    const filteredTransactions = transactions
-        .filter(tx => !optimisticDeletedIds.includes(tx.id)) // Exclude optimistically deleted
-        .filter(tx => {
-            // 1. Text Search
-            const matchesSearch = !activeSearchQuery ||
-                (tx.description && tx.description.toLowerCase().includes(activeSearchQuery.toLowerCase())) ||
-                (tx.category && tx.category.toLowerCase().includes(activeSearchQuery.toLowerCase())) ||
-                (tx.type === 'deposit' ? 'ingreso' : 'gasto').includes(activeSearchQuery.toLowerCase());
-
-            // 2. Type Filter
-            const matchesType = filterType === 'all' ||
-                (filterType === 'deposit' ? (tx.type === 'deposit' || tx.type === 'yield') : (tx.type === 'withdrawal' || tx.type === 'payment'));
-
-            // 3. Wallet Filter
-            const matchesWallet = !filters.walletId || tx.wallet_id === filters.walletId;
-
-            // 4. Amount Filter
-            const matchesMinAmount = !filters.minAmount || tx.amount >= parseFloat(filters.minAmount);
-            const matchesMaxAmount = !filters.maxAmount || tx.amount <= parseFloat(filters.maxAmount);
-
-            // 5. Date Filter (Simplified)
-            let matchesDate = true;
-            if (filters.dateRange) {
-                const txDate = new Date(tx.date || tx.created_at);
-                const now = new Date();
-                const daysDiff = (now - txDate) / (1000 * 60 * 60 * 24);
-                if (filters.dateRange === '7days' && daysDiff > 7) matchesDate = false;
-                if (filters.dateRange === '30days' && daysDiff > 30) matchesDate = false;
-            }
-
-            return matchesSearch && matchesType && matchesWallet && matchesMinAmount && matchesMaxAmount && matchesDate;
-        });
-
     // Helper: Calculate Stats based on Time Range
     const calculateStats = (txs, range) => {
         const now = new Date();
@@ -245,7 +162,109 @@ const DashboardHome = ({
         };
     };
 
-    const dynamicStats = calculateStats(transactions, timeRange);
+    // Combine Transactions + Wallet Initial Balances for accurate Stats & Charts
+    const allMovements = React.useMemo(() => {
+        const initialBalances = wallets.map(w => ({
+            id: `init-${w.id}`,
+            amount: Number(w.initial_balance) || 0,
+            type: 'deposit', // Treat as deposit for "Income" / "Growth" logic
+            category: 'Saldo Inicial',
+            description: `Saldo Inicial: ${w.name}`,
+            created_at: w.created_at, // Explicitly add created_at for charts
+            date: w.created_at, // Use wallet creation date
+            wallet_id: w.id,
+            isInitial: true // Flag to exclude from list if needed
+        })).filter(tx => tx.amount > 0);
+
+        return [...transactions, ...initialBalances].sort((a, b) => new Date(b.date || b.created_at) - new Date(a.date || a.created_at));
+    }, [transactions, wallets]);
+
+    const dynamicStats = calculateStats(allMovements, timeRange);
+
+    const handleTransactionSuccess = () => {
+        // Trigger background refresh
+        if (typeof refreshData === 'function') refreshData();
+    };
+
+    const handleEdit = (tx) => {
+        setTransactionToEdit(tx);
+        setIsModalOpen(true);
+    };
+
+    const handleDelete = async (id) => {
+        if (!window.confirm('¿Estás seguro de que quieres eliminar esta transacción?')) return;
+
+        // 1. Optimistic Update: Hide immediately
+        setOptimisticDeletedIds(prev => [...prev, id]);
+
+        try {
+            const { error } = await supabase.from('transactions').delete().eq('id', id);
+            if (error) throw error;
+
+            // 2. Background Refresh to sync stats
+            if (typeof refreshData === 'function') refreshData();
+
+        } catch (error) {
+            console.error('Error deleting transaction:', error);
+            alert('Error al eliminar la transacción');
+            // Revert if failed
+            setOptimisticDeletedIds(prev => prev.filter(pid => pid !== id));
+        }
+    };
+
+    const handleCloseModal = () => {
+        setIsModalOpen(false);
+        setTransactionToEdit(null);
+    };
+
+    if (loading) {
+        return (
+            <div className="flex h-[50vh] items-center justify-center">
+                <Loader2 className="w-10 h-10 text-cyan-400 animate-spin" />
+            </div>
+        );
+    }
+
+    // Determine if we are in "Search Mode"
+    // Use either the local search query OR the one passed from global layout if provided
+    const activeSearchQuery = searchQuery || globalSearchQuery;
+    const isSearching = !!activeSearchQuery || filterType !== 'all' || filters.walletId || filters.minAmount || filters.maxAmount || filters.dateRange;
+
+    // Filter Logic
+    const filteredTransactions = transactions
+        .filter(tx => !optimisticDeletedIds.includes(tx.id)) // Exclude optimistically deleted
+        .filter(tx => {
+            // 1. Text Search
+            const matchesSearch = !activeSearchQuery ||
+                (tx.description && tx.description.toLowerCase().includes(activeSearchQuery.toLowerCase())) ||
+                (tx.category && tx.category.toLowerCase().includes(activeSearchQuery.toLowerCase())) ||
+                (tx.type === 'deposit' ? 'ingreso' : 'gasto').includes(activeSearchQuery.toLowerCase());
+
+            // 2. Type Filter
+            const matchesType = filterType === 'all' ||
+                (filterType === 'deposit' ? (tx.type === 'deposit' || tx.type === 'yield') : (tx.type === 'withdrawal' || tx.type === 'payment'));
+
+            // 3. Wallet Filter
+            const matchesWallet = !filters.walletId || tx.wallet_id === filters.walletId;
+
+            // 4. Amount Filter
+            const matchesMinAmount = !filters.minAmount || tx.amount >= parseFloat(filters.minAmount);
+            const matchesMaxAmount = !filters.maxAmount || tx.amount <= parseFloat(filters.maxAmount);
+
+            // 5. Date Filter (Simplified)
+            let matchesDate = true;
+            if (filters.dateRange) {
+                const txDate = new Date(tx.date || tx.created_at);
+                const now = new Date();
+                const daysDiff = (now - txDate) / (1000 * 60 * 60 * 24);
+                if (filters.dateRange === '7days' && daysDiff > 7) matchesDate = false;
+                if (filters.dateRange === '30days' && daysDiff > 30) matchesDate = false;
+            }
+
+            return matchesSearch && matchesType && matchesWallet && matchesMinAmount && matchesMaxAmount && matchesDate;
+        });
+
+
 
     const getComparisonLabel = (range) => {
         switch (range) {
@@ -418,7 +437,7 @@ const DashboardHome = ({
                         {/* Main Chart + Widgets Area */}
                         <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
                             <div className="xl:col-span-2">
-                                <ChartSection transactions={transactions} formatCurrency={formatCurrency} />
+                                <ChartSection transactions={allMovements} formatCurrency={formatCurrency} />
                             </div>
                             <div className="xl:col-span-1">
                                 <MonthlySummary
@@ -446,7 +465,7 @@ const DashboardHome = ({
                         {/* Analytics Row */}
                         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                             <div className="lg:col-span-2">
-                                <ComparisonChart transactions={transactions} formatCurrency={formatCurrency} />
+                                <ComparisonChart transactions={allMovements} formatCurrency={formatCurrency} />
                             </div>
                             <div className="lg:col-span-1">
                                 <CompositionChart wallets={wallets} formatCurrency={formatCurrency} />
