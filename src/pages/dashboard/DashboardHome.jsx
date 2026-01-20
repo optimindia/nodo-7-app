@@ -179,7 +179,19 @@ const DashboardHome = ({
             prevStart = new Date(currentStart);
             prevStart.setDate(prevStart.getDate() - 1);
             prevEnd = new Date(prevStart);
-            prevStart.setDate(prevEnd.getDate() - 1); // Fix previous day end
+            prevEnd.setHours(23, 59, 59, 999);
+        } else if (range === 'yesterday') {
+            currentStart = new Date(now);
+            currentStart.setDate(currentStart.getDate() - 1);
+            currentStart.setHours(0, 0, 0, 0);
+
+            currentEnd = new Date(currentStart);
+            currentEnd.setHours(23, 59, 59, 999);
+
+            prevStart = new Date(currentStart);
+            prevStart.setDate(prevStart.getDate() - 1);
+
+            prevEnd = new Date(prevStart);
             prevEnd.setHours(23, 59, 59, 999);
         } else if (range === 'year') {
             currentStart = new Date(now.getFullYear(), 0, 1);
@@ -227,6 +239,7 @@ const DashboardHome = ({
     const getComparisonLabel = (range) => {
         switch (range) {
             case 'today': return 'vs ayer';
+            case 'yesterday': return 'vs anteayer';
             case 'this_week': return 'vs semana anterior';
             case 'this_month': return 'vs mes anterior';
             case 'last_month': return 'vs mes anterior';
@@ -254,6 +267,7 @@ const DashboardHome = ({
                             <div className="flex bg-white/5 p-1 rounded-xl border border-white/10 w-fit overflow-x-auto max-w-full">
                                 {[
                                     { id: 'today', label: 'Hoy' },
+                                    { id: 'yesterday', label: 'Ayer' }, // Added Yesterday
                                     { id: 'this_week', label: 'Semana' },
                                     { id: 'this_month', label: 'Este Mes' },
                                     { id: 'last_month', label: 'Mes Pasado' },
@@ -370,7 +384,7 @@ const DashboardHome = ({
                             {/* Card 3: Daily Average */}
                             <StatsCard
                                 title="Promedio Diario"
-                                value={formatCurrency((dynamicStats.expenses.value + dynamicStats.income.value) / (timeRange === 'today' ? 1 : 30))} // Very rough
+                                value={formatCurrency((dynamicStats.expenses.value + dynamicStats.income.value) / (timeRange === 'today' || timeRange === 'yesterday' ? 1 : 30))} // Adjusted logic
                                 trend="up"
                                 trendValue="Est."
                                 icon={TrendingUp}
@@ -396,7 +410,25 @@ const DashboardHome = ({
                                 <ChartSection transactions={transactions} formatCurrency={formatCurrency} />
                             </div>
                             <div className="xl:col-span-1">
-                                <MonthlySummary transactions={transactions} formatCurrency={formatCurrency} />
+                                <MonthlySummary
+                                    income={dynamicStats.income.value}
+                                    expenses={dynamicStats.expenses.value}
+                                    title={
+                                        timeRange === 'today' ? "Resumen Diario" :
+                                            timeRange === 'yesterday' ? "Resumen de Ayer" :
+                                                timeRange === 'this_week' ? "Resumen Semanal" :
+                                                    timeRange === 'this_month' ? "Resumen Mensual" :
+                                                        timeRange === 'last_month' ? "Mes Pasado" :
+                                                            timeRange === 'year' ? "Resumen Anual" :
+                                                                "Resumen Personalizado"
+                                    }
+                                    subtitle={
+                                        timeRange === 'today' ? "Ingresos vs Gastos hoy" :
+                                            timeRange === 'yesterday' ? "Ingresos vs Gastos ayer" :
+                                                "Ingresos vs Gastos este periodo"
+                                    }
+                                    formatCurrency={formatCurrency}
+                                />
                             </div>
                         </div>
 
