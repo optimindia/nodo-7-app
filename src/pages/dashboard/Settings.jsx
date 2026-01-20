@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { User, Settings as SettingsIcon, Bell, Shield, Save, Camera, Mail, AtSign, Globe, DollarSign, AlertTriangle } from 'lucide-react';
+import { User, Settings as SettingsIcon, CreditCard, Save, Loader2, Globe, Shield, CheckCircle, AlertCircle } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import { supabase } = '../../lib/supabaseClient';
+import { supabase } from '../../lib/supabaseClient';
 
 const Settings = () => {
     const { user, refreshProfile } = useAuth();
@@ -200,131 +200,96 @@ const Settings = () => {
                     {/* --- PROFILE TAB --- */}
                     {activeTab === 'profile' && (
                         <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-6 max-w-2xl">
-                            <div className="bg-[#0f172a] rounded-2xl border border-white/5 p-6 md:p-8">
-                                <h2 className="text-xl font-bold mb-6 flex items-center gap-2">
-                                    <User className="w-5 h-5 text-cyan-400" />
-                                    Información Personal
-                                </h2>
-
-                                <div className="space-y-6">
-                                    {/* Avatar */}
-                                    <div className="flex items-center gap-6">
-                                        <div className="w-20 h-20 rounded-full bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-2xl font-bold text-cyan-400">
-                                            {formData.full_name?.charAt(0) || user.email?.charAt(0)}
-                                        </div>
-                                        <div>
-                                            <h3 className="font-medium text-white mb-1">Foto de Perfil</h3>
-                                            <p className="text-sm text-white/40 mb-3">Se usa Gravatar o UI Avatars basado en tu nombre.</p>
-                                        </div>
-                                    </div>
-
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                        <div className="space-y-2">
-                                            <label className="text-sm text-white/60">Nombre Completo</label>
-                                            <div className="relative group">
-                                                <User className="absolute left-3 top-2.5 w-4 h-4 text-white/40 group-focus-within:text-cyan-400 transition-colors" />
-                                                <input
-                                                    type="text"
-                                                    value={formData.full_name}
-                                                    onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
-                                                    className="w-full bg-white/5 border border-white/10 rounded-xl py-2 pl-10 pr-4 text-sm focus:outline-none focus:border-cyan-500/50 focus:bg-white/10 transition-all"
-                                                    placeholder="Tu nombre"
-                                                />
-                                            </div>
-                                        </div>
-
-                                        <div className="space-y-2">
-                                            <label className="text-sm text-white/60">Nombre de Usuario</label>
-                                            <div className="relative group">
-                                                <AtSign className="absolute left-3 top-2.5 w-4 h-4 text-white/40 group-focus-within:text-cyan-400 transition-colors" />
-                                                <input
-                                                    type="text"
-                                                    value={formData.username}
-                                                    onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-                                                    className="w-full bg-white/5 border border-white/10 rounded-xl py-2 pl-10 pr-4 text-sm focus:outline-none focus:border-cyan-500/50 focus:bg-white/10 transition-all"
-                                                    placeholder="@usuario"
-                                                />
-                                            </div>
-                                        </div>
-
-                                        <div className="space-y-2 md:col-span-2">
-                                            <label className="text-sm text-white/60">Biografía</label>
-                                            <textarea
-                                                value={formData.bio}
-                                                onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
-                                                className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-sm focus:outline-none focus:border-cyan-500/50 focus:bg-white/10 transition-all h-24 resize-none"
-                                                placeholder="Cuéntanos un poco sobre ti..."
-                                            />
-                                        </div>
-                                    </div>
+                            <h3 className="text-xl font-bold text-white mb-4">Información Personal</h3>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+                                <div className="space-y-2">
+                                    <label className="text-sm text-white/60">Nombre Completo</label>
+                                    <input
+                                        type="text"
+                                        value={formData.full_name}
+                                        onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
+                                        className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-cyan-500/50 outline-none transition-colors"
+                                        placeholder="Tu nombre"
+                                    />
                                 </div>
+                                <div className="space-y-2">
+                                    <label className="text-sm text-white/60">Nombre de Usuario</label>
+                                    <input
+                                        type="text"
+                                        value={formData.username}
+                                        onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+                                        className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-cyan-500/50 outline-none transition-colors"
+                                        placeholder="@usuario"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="space-y-2">
+                                <label className="text-sm text-white/60">Biografía</label>
+                                <textarea
+                                    value={formData.bio}
+                                    onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
+                                    className="w-full h-32 bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-cyan-500/50 outline-none transition-colors resize-none"
+                                    placeholder="Cuéntanos un poco sobre ti..."
+                                />
                             </div>
                         </motion.div>
                     )}
 
                     {/* --- PREFERENCES TAB --- */}
                     {activeTab === 'preferences' && (
-                        <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-6 max-w-2xl">
-                            <div className="bg-[#0f172a] rounded-2xl border border-white/5 p-6 md:p-8">
-                                <h2 className="text-xl font-bold mb-6 flex items-center gap-2">
-                                    <SettingsIcon className="w-5 h-5 text-cyan-400" />
-                                    Preferencias
-                                </h2>
+                        <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-8 max-w-2xl">
 
-                                <div className="space-y-6">
-                                    <div className="space-y-2">
-                                        <label className="text-sm text-white/60">Moneda Principal</label>
-                                        <div className="relative group">
-                                            <DollarSign className="absolute left-3 top-2.5 w-4 h-4 text-white/40 group-focus-within:text-cyan-400 transition-colors" />
-                                            <select
-                                                value={formData.currency}
-                                                onChange={(e) => setFormData({ ...formData, currency: e.target.value })}
-                                                className="w-full bg-white/5 border border-white/10 rounded-xl py-2 pl-10 pr-4 text-sm focus:outline-none focus:border-cyan-500/50 focus:bg-white/10 transition-all appearance-none"
-                                            >
-                                                <option value="USD">Dólar Estadounidense (USD)</option>
-                                                <option value="EUR">Euro (EUR)</option>
-                                                <option value="MXN">Peso Mexicano (MXN)</option>
-                                                <option value="COP">Peso Colombiano (COP)</option>
-                                                <option value="ARS">Peso Argentino (ARS)</option>
-                                            </select>
-                                        </div>
-                                    </div>
+                            {/* Currency Selector */}
+                            <div className="space-y-4">
+                                <div className="flex items-center gap-3 text-cyan-400 mb-2">
+                                    <CreditCard className="w-5 h-5" />
+                                    <h3 className="font-bold text-lg text-white">Moneda Principal</h3>
+                                </div>
+                                <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4">
+                                    {['USD', 'EUR', 'MXN', 'COP', 'ARS'].map(curr => (
+                                        <button
+                                            key={curr}
+                                            onClick={() => setFormData({ ...formData, currency: curr })}
+                                            className={`px-4 py-3 rounded-xl border transition-all text-left font-medium ${formData.currency === curr
+                                                ? 'bg-cyan-500/20 border-cyan-500 text-cyan-400'
+                                                : 'bg-black/20 border-white/10 text-white/60 hover:bg-white/5'
+                                                }`}
+                                        >
+                                            {curr}
+                                        </button>
+                                    ))}
+                                </div>
+                                <p className="text-xs text-white/40">Esto cambiará cómo se muestran los balances en todo el panel.</p>
+                            </div>
 
-                                    <div className="space-y-2">
-                                        <label className="text-sm text-white/60">Idioma</label>
-                                        <div className="relative group">
-                                            <Globe className="absolute left-3 top-2.5 w-4 h-4 text-white/40 group-focus-within:text-cyan-400 transition-colors" />
-                                            <select
-                                                value={formData.language}
-                                                onChange={(e) => setFormData({ ...formData, language: e.target.value })}
-                                                className="w-full bg-white/5 border border-white/10 rounded-xl py-2 pl-10 pr-4 text-sm focus:outline-none focus:border-cyan-500/50 focus:bg-white/10 transition-all appearance-none"
-                                            >
-                                                <option value="es">Español</option>
-                                                <option value="en">English</option>
-                                            </select>
-                                        </div>
-                                    </div>
+                            <div className="border-t border-white/10" />
 
-                                    <div className="flex items-center justify-between p-4 bg-white/5 rounded-xl border border-white/10">
-                                        <div className="flex items-center gap-3">
-                                            <div className="p-2 bg-cyan-500/10 rounded-lg text-cyan-400">
-                                                <Bell className="w-5 h-5" />
-                                            </div>
-                                            <div>
-                                                <h3 className="text-sm font-medium text-white">Notificaciones</h3>
-                                                <p className="text-xs text-white/40">Recibir alertas de actividad y consejos</p>
-                                            </div>
-                                        </div>
-                                        <label className="relative inline-flex items-center cursor-pointer">
-                                            <input
-                                                type="checkbox"
-                                                checked={formData.notifications_enabled}
-                                                onChange={(e) => setFormData({ ...formData, notifications_enabled: e.target.checked })}
-                                                className="sr-only peer"
-                                            />
-                                            <div className="w-11 h-6 bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-cyan-500"></div>
-                                        </label>
-                                    </div>
+                            {/* Language Selector */}
+                            <div className="space-y-4">
+                                <div className="flex items-center gap-3 text-cyan-400 mb-2">
+                                    <Globe className="w-5 h-5" />
+                                    <h3 className="font-bold text-lg text-white">Idioma</h3>
+                                </div>
+                                <div className="flex flex-col sm:flex-row gap-4">
+                                    <button
+                                        onClick={() => setFormData({ ...formData, language: 'es' })}
+                                        className={`flex-1 px-4 py-3 rounded-xl border transition-all font-medium ${formData.language === 'es'
+                                            ? 'bg-cyan-500/20 border-cyan-500 text-cyan-400'
+                                            : 'bg-black/20 border-white/10 text-white/60 hover:bg-white/5'
+                                            }`}
+                                    >
+                                        Español
+                                    </button>
+                                    <button
+                                        onClick={() => setFormData({ ...formData, language: 'en' })}
+                                        className={`flex-1 px-4 py-3 rounded-xl border transition-all font-medium ${formData.language === 'en'
+                                            ? 'bg-cyan-500/20 border-cyan-500 text-cyan-400'
+                                            : 'bg-black/20 border-white/10 text-white/60 hover:bg-white/5'
+                                            }`}
+                                    >
+                                        English
+                                    </button>
                                 </div>
                             </div>
                         </motion.div>

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useUserRole } from '../../hooks/useUserRole';
 import { useAdminData } from '../../hooks/useAdminData';
 import { supabase } from '../../lib/supabaseClient';
-import { Users, CreditCard, Activity, Plus, Search, Shield, User, DollarSign, Loader2, X, MoreVertical, Ban, Zap, Pencil, Check } from 'lucide-react';
+import { Users, CreditCard, Activity, Plus, Search, Shield, User, DollarSign, Loader2, X, MoreVertical, Ban, Zap, Pencil, Check, Trash2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const AdminDashboard = () => {
@@ -128,6 +128,25 @@ const AdminDashboard = () => {
         }
     };
 
+    const handleDeleteUser = async (user) => {
+        if (!window.confirm(`¿ESTÁS SEGURO? \n\nVas a eliminar permanentemente al usuario ${user.email}.\nEsta acción NO se puede deshacer y borrará todos sus datos (billeteras, metas, etc).`)) return;
+
+        try {
+            const { data, error } = await supabase.rpc('delete_user_by_id', {
+                target_user_id: user.id
+            });
+
+            if (error) throw error;
+            if (data && !data.success) throw new Error(data.message);
+
+            refreshData();
+            alert('Usuario eliminado permanentemente.');
+        } catch (error) {
+            console.error("Delete error:", error);
+            alert("Error al eliminar: " + error.message);
+        }
+    };
+
     const isReseller = role === 'reseller';
 
     return (
@@ -141,13 +160,22 @@ const AdminDashboard = () => {
                         Bienvenido, <span className="uppercase font-semibold text-cyan-400">{role}</span>.
                     </p>
                 </div>
-                <button
-                    onClick={() => setIsCreateModalOpen(true)}
-                    className="flex items-center gap-2 px-6 py-3 bg-cyan-500 hover:bg-cyan-400 text-black font-bold rounded-xl transition-all shadow-[0_0_20px_rgba(34,211,238,0.3)] hover:shadow-[0_0_30px_rgba(34,211,238,0.5)] active:scale-95"
-                >
-                    <Plus className="w-5 h-5" />
-                    Nuevo Usuario
-                </button>
+                <div className="flex gap-2">
+                    <button
+                        onClick={refreshData}
+                        className="p-3 bg-white/5 hover:bg-white/10 text-white rounded-xl transition-all border border-white/10"
+                        title="Recargar datos"
+                    >
+                        <Activity className="w-5 h-5" />
+                    </button>
+                    <button
+                        onClick={() => setIsCreateModalOpen(true)}
+                        className="flex items-center gap-2 px-6 py-3 bg-cyan-500 hover:bg-cyan-400 text-black font-bold rounded-xl transition-all shadow-[0_0_20px_rgba(34,211,238,0.3)] hover:shadow-[0_0_30px_rgba(34,211,238,0.5)] active:scale-95"
+                    >
+                        <Plus className="w-5 h-5" />
+                        <span className="hidden md:inline">Nuevo Usuario</span>
+                    </button>
+                </div>
             </header>
 
             {/* Scoped Stats Grid */}
@@ -208,6 +236,7 @@ const AdminDashboard = () => {
                                 <th className="p-4 font-medium">Rol</th>
                                 <th className="p-4 font-medium">Créditos</th>
                                 <th className="p-4 font-medium">Estado</th>
+                                <th className="p-4 font-medium">Avance</th>
                                 <th className="p-4 font-medium">Creado Por</th>
                                 <th className="p-4 font-medium text-right">Acciones</th>
                             </tr>
@@ -238,6 +267,14 @@ const AdminDashboard = () => {
                                                 {user.subscription_status}
                                             </span>
                                         </td>
+                                        <td className="p-4">
+                                            <div className="flex items-center gap-2">
+                                                <div className={`w-2 h-2 rounded-full ${user.has_completed_setup ? 'bg-green-500 shadow-[0_0_10px_#22c55e]' : 'bg-yellow-500'}`} />
+                                                <span className={`text-xs ${user.has_completed_setup ? 'text-green-400' : 'text-yellow-400/80'}`}>
+                                                    {user.has_completed_setup ? 'Completado' : 'Pendiente'}
+                                                </span>
+                                            </div>
+                                        </td>
                                         <td className="p-4 text-xs text-white/30 font-mono">
                                             {user.created_by ? user.created_by.slice(0, 8) + '...' : 'System'}
                                         </td>
@@ -258,6 +295,13 @@ const AdminDashboard = () => {
                                                         }`}
                                                 >
                                                     {user.subscription_status === 'inactive' ? <Check className="w-4 h-4" /> : <Ban className="w-4 h-4" />}
+                                                </button>
+                                                <button
+                                                    onClick={() => handleDeleteUser(user)}
+                                                    title="Eliminar Usuario"
+                                                    className="p-2 hover:bg-rose-500/20 text-rose-400 rounded-lg transition-colors"
+                                                >
+                                                    <Trash2 className="w-4 h-4" />
                                                 </button>
                                             </div>
                                         </td>

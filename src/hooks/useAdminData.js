@@ -37,7 +37,7 @@ export const useAdminData = (page = 1, perPage = 10, searchTerm = '') => {
             // Note: We use the 'Strict Hierarchy' RLS, so simple select is safe.
             let query = supabase
                 .from('profiles')
-                .select('id, email, role, credits, subscription_status, created_by, created_at', { count: 'exact' })
+                .select('id, email, role, credits, subscription_status, created_by, created_at, has_completed_setup', { count: 'exact' })
                 .order('created_at', { ascending: false })
                 .range(from, to);
 
@@ -64,7 +64,7 @@ export const useAdminData = (page = 1, perPage = 10, searchTerm = '') => {
             }
 
             setUsers(fetchedUsers);
-            setTotalRecords(fetchedUsers.length < (usersResult.count || 0) ? fetchedUsers.length : (usersResult.count || 0));
+            setTotalRecords(usersResult.count || 0);
 
             // Set Stats from RPC
             setStats(statsResult.data);
