@@ -18,7 +18,8 @@ const DashboardHome = ({
     wallets = [],
     goals = [],
     loading = false,
-    formatCurrency
+    formatCurrency,
+    refreshData
 }) => {
     // Props are now passed from Layout to avoid double fetching and enable global access
 
@@ -44,13 +45,12 @@ const DashboardHome = ({
     const [customDateRange, setCustomDateRange] = useState({ start: '', end: '' });
     const [statView, setStatView] = useState('expense'); // 'expense' | 'income'
 
+    // Optimistic Deletion State
+    const [optimisticDeletedIds, setOptimisticDeletedIds] = useState([]);
+
     const handleTransactionSuccess = () => {
-        // Trigger generic refresh? 
-        // Ideally, we should have a 'refetch' prop passed down from layout if we need manual refresh, 
-        // but real-time subscription in layout might handle it automatically?
-        // For now, let's assume layout handles it or we reload page.
-        // Actually best to reload for guarantees until RT is perfect:
-        window.location.reload();
+        // Trigger background refresh
+        if (typeof refreshData === 'function') refreshData();
     };
 
     const handleEdit = (tx) => {
@@ -61,12 +61,21 @@ const DashboardHome = ({
     const handleDelete = async (id) => {
         if (!window.confirm('¿Estás seguro de que quieres eliminar esta transacción?')) return;
 
+        // 1. Optimistic Update: Hide immediately
+        setOptimisticDeletedIds(prev => [...prev, id]);
+
         try {
             const { error } = await supabase.from('transactions').delete().eq('id', id);
             if (error) throw error;
-            window.location.reload(); // Simple refresh
+
+            // 2. Background Refresh to sync stats
+            if (typeof refreshData === 'function') refreshData();
+
         } catch (error) {
             console.error('Error deleting transaction:', error);
+            alert('Error al eliminar la transacción');
+            // Revert if failed
+            setOptimisticDeletedIds(prev => prev.filter(pid => pid !== id));
         }
     };
 
@@ -89,36 +98,38 @@ const DashboardHome = ({
     const isSearching = !!activeSearchQuery || filterType !== 'all' || filters.walletId || filters.minAmount || filters.maxAmount || filters.dateRange;
 
     // Filter Logic
-    const filteredTransactions = transactions.filter(tx => {
-        // 1. Text Search
-        const matchesSearch = !activeSearchQuery ||
-            (tx.description && tx.description.toLowerCase().includes(activeSearchQuery.toLowerCase())) ||
-            (tx.category && tx.category.toLowerCase().includes(activeSearchQuery.toLowerCase())) ||
-            (tx.type === 'deposit' ? 'ingreso' : 'gasto').includes(activeSearchQuery.toLowerCase());
+    const filteredTransactions = transactions
+        .filter(tx => !optimisticDeletedIds.includes(tx.id)) // Exclude optimistically deleted
+        .filter(tx => {
+            // 1. Text Search
+            const matchesSearch = !activeSearchQuery ||
+                (tx.description && tx.description.toLowerCase().includes(activeSearchQuery.toLowerCase())) ||
+                (tx.category && tx.category.toLowerCase().includes(activeSearchQuery.toLowerCase())) ||
+                (tx.type === 'deposit' ? 'ingreso' : 'gasto').includes(activeSearchQuery.toLowerCase());
 
-        // 2. Type Filter
-        const matchesType = filterType === 'all' ||
-            (filterType === 'deposit' ? (tx.type === 'deposit' || tx.type === 'yield') : (tx.type === 'withdrawal' || tx.type === 'payment'));
+            // 2. Type Filter
+            const matchesType = filterType === 'all' ||
+                (filterType === 'deposit' ? (tx.type === 'deposit' || tx.type === 'yield') : (tx.type === 'withdrawal' || tx.type === 'payment'));
 
-        // 3. Wallet Filter
-        const matchesWallet = !filters.walletId || tx.wallet_id === filters.walletId;
+            // 3. Wallet Filter
+            const matchesWallet = !filters.walletId || tx.wallet_id === filters.walletId;
 
-        // 4. Amount Filter
-        const matchesMinAmount = !filters.minAmount || tx.amount >= parseFloat(filters.minAmount);
-        const matchesMaxAmount = !filters.maxAmount || tx.amount <= parseFloat(filters.maxAmount);
+            // 4. Amount Filter
+            const matchesMinAmount = !filters.minAmount || tx.amount >= parseFloat(filters.minAmount);
+            const matchesMaxAmount = !filters.maxAmount || tx.amount <= parseFloat(filters.maxAmount);
 
-        // 5. Date Filter (Simplified)
-        let matchesDate = true;
-        if (filters.dateRange) {
-            const txDate = new Date(tx.date || tx.created_at);
-            const now = new Date();
-            const daysDiff = (now - txDate) / (1000 * 60 * 60 * 24);
-            if (filters.dateRange === '7days' && daysDiff > 7) matchesDate = false;
-            if (filters.dateRange === '30days' && daysDiff > 30) matchesDate = false;
-        }
+            // 5. Date Filter (Simplified)
+            let matchesDate = true;
+            if (filters.dateRange) {
+                const txDate = new Date(tx.date || tx.created_at);
+                const now = new Date();
+                const daysDiff = (now - txDate) / (1000 * 60 * 60 * 24);
+                if (filters.dateRange === '7days' && daysDiff > 7) matchesDate = false;
+                if (filters.dateRange === '30days' && daysDiff > 30) matchesDate = false;
+            }
 
-        return matchesSearch && matchesType && matchesWallet && matchesMinAmount && matchesMaxAmount && matchesDate;
-    });
+            return matchesSearch && matchesType && matchesWallet && matchesMinAmount && matchesMaxAmount && matchesDate;
+        });
 
     // Helper: Calculate Stats based on Time Range
     const calculateStats = (txs, range) => {

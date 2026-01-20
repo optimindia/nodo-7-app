@@ -26,7 +26,7 @@ const DashboardLayout = ({ children, currentView, setCurrentView }) => {
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
     // Global Data Fetching (Lifted State)
-    const { stats, transactions, wallets, goals, loading, formatCurrency } = useDashboardData();
+    const { stats, transactions, wallets, goals, loading, formatCurrency, refreshData } = useDashboardData();
     const { notifications, unreadCount, markAsRead, markAllRead, analyzeAndNotify, addNotification, deleteNotification } = useNotifications(session?.user);
 
     // Automatic Recurring Processor
@@ -71,7 +71,8 @@ const DashboardLayout = ({ children, currentView, setCurrentView }) => {
             wallets,
             goals,
             loading,
-            formatCurrency
+            formatCurrency,
+            refreshData
         };
 
         switch (currentView) {

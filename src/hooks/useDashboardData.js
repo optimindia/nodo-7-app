@@ -2,8 +2,9 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../context/AuthContext';
 
-export const useDashboardData = (refreshKey = 0) => {
+export const useDashboardData = () => {
     const { user } = useAuth();
+    const [refreshTrigger, setRefreshTrigger] = useState(0);
     const [profile, setProfile] = useState(null);
     const [transactions, setTransactions] = useState([]);
     const [wallets, setWallets] = useState([]);
@@ -16,12 +17,17 @@ export const useDashboardData = (refreshKey = 0) => {
     });
     const [loading, setLoading] = useState(true);
 
+    const refreshData = () => {
+        setRefreshTrigger(prev => prev + 1);
+    };
+
     useEffect(() => {
         if (!user) return;
 
         const fetchData = async () => {
             try {
-                setLoading(true);
+                // Only set loading on FIRST load, for refresh we want background update
+                if (refreshTrigger === 0) setLoading(true);
 
                 // 1. Fetch Profile
                 const { data: profileData, error: profileError } = await supabase
@@ -113,7 +119,7 @@ export const useDashboardData = (refreshKey = 0) => {
 
         fetchData();
 
-    }, [user, refreshKey]); // Depend on refreshKey
+    }, [user, refreshTrigger]);
 
     // Helper to format currency based on user profile
     const formatCurrency = (amount) => {
@@ -125,5 +131,5 @@ export const useDashboardData = (refreshKey = 0) => {
         }).format(amount);
     };
 
-    return { profile, transactions, wallets, goals, stats, loading, formatCurrency };
+    return { profile, transactions, wallets, goals, stats, loading, formatCurrency, refreshData };
 };
