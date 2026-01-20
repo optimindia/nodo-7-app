@@ -10,7 +10,7 @@ import { formatCurrency } from '../../utils/format';
 const TransactionModal = ({ isOpen, onClose, onTransactionAdded, userId, initialData, wallets: propWallets }) => {
     const { user } = useAuth();
     const { goals } = useGoals();
-    const { categories } = useCategories();
+    const { categories, addCategory } = useCategories();
 
     // Form States
     const [amount, setAmount] = useState(initialData?.amount || '');
@@ -19,6 +19,10 @@ const TransactionModal = ({ isOpen, onClose, onTransactionAdded, userId, initial
     const [category, setCategory] = useState(initialData?.category || '');
     const [date, setDate] = useState(initialData?.date || new Date().toISOString().split('T')[0]);
     const [selectedGoal, setSelectedGoal] = useState(initialData?.goal_id || '');
+
+    // Category Creation State
+    const [isCreatingCategory, setIsCreatingCategory] = useState(false);
+    const [newCategoryName, setNewCategoryName] = useState('');
 
     // Wallets (Use props if available, otherwise fallback)
     const [localWallets, setLocalWallets] = useState([]);
@@ -278,12 +282,53 @@ const TransactionModal = ({ isOpen, onClose, onTransactionAdded, userId, initial
                                                     <span className="font-bold text-sm">{cat.name}</span>
                                                 </button>
                                             ))}
-                                            <button
-                                                type="button"
-                                                className="px-4 py-2 rounded-xl border border-dashed border-white/10 text-white/20 text-sm hover:text-white/60 hover:border-white/20 transition-colors"
-                                            >
-                                                + Nueva
-                                            </button>
+                                            {isCreatingCategory ? (
+                                                <div className="flex items-center gap-1">
+                                                    <input
+                                                        autoFocus
+                                                        value={newCategoryName}
+                                                        onChange={(e) => setNewCategoryName(e.target.value)}
+                                                        placeholder="Nombre..."
+                                                        className="w-32 px-3 py-2 rounded-xl bg-white/10 border border-cyan-500/50 text-sm text-white focus:outline-none"
+                                                        onKeyDown={async (e) => {
+                                                            if (e.key === 'Enter') {
+                                                                e.preventDefault();
+                                                                if (!newCategoryName.trim()) return;
+                                                                try {
+                                                                    const newCat = await addCategory({
+                                                                        name: newCategoryName,
+                                                                        type: type === 'deposit' ? 'income' : 'expense',
+                                                                        icon: '✨', // Default icon
+                                                                        color: 'cyan' // Default color
+                                                                    });
+                                                                    setCategory(newCat.name);
+                                                                    setIsCreatingCategory(false);
+                                                                    setNewCategoryName('');
+                                                                } catch (error) {
+                                                                    console.error(error);
+                                                                }
+                                                            } else if (e.key === 'Escape') {
+                                                                setIsCreatingCategory(false);
+                                                            }
+                                                        }}
+                                                    />
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setIsCreatingCategory(false)}
+                                                        className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-white/40"
+                                                    >
+                                                        <X size={14} />
+                                                    </button>
+                                                </div>
+                                            ) : (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setIsCreatingCategory(true)}
+                                                    className="px-4 py-2 rounded-xl border border-dashed border-white/10 text-white/20 text-sm hover:text-white/60 hover:border-white/20 transition-colors whitespace-nowrap"
+                                                >
+                                                    + Nueva
+                                                </button>
+                                            )}
                                         </div>
                                     </div>
 

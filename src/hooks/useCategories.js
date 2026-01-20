@@ -19,6 +19,7 @@ export const useCategories = () => {
             const { data, error } = await supabase
                 .from('categories')
                 .select('*')
+                .order('display_order', { ascending: true })
                 .order('name', { ascending: true });
 
             if (error) throw error;
@@ -31,11 +32,15 @@ export const useCategories = () => {
     };
 
     const addCategory = async (categoryData) => {
-        const { error } = await supabase
+        const { data, error } = await supabase
             .from('categories')
-            .insert([{ ...categoryData, user_id: session.user.id }]);
+            .insert([{ ...categoryData, user_id: session.user.id, display_order: 999 }]) // Default to end
+            .select()
+            .single();
+
         if (error) throw error;
-        fetchCategories();
+        await fetchCategories(); // Refresh list
+        return data; // Return the new category
     };
 
     const updateCategory = async (id, updates) => {

@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Sidebar from './Sidebar';
+import MobileNav from './MobileNav'; // NEW: Mobile Navigation
+import TransactionModal from './TransactionModal'; // NEW: Global Modal
 import { Search, Bell, LogOut, Settings as SettingsIcon, User, X, ChevronDown, CheckCheck, Loader2, Menu, ShoppingCart } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { supabase } from '../../lib/supabaseClient';
@@ -25,13 +27,16 @@ const DashboardLayout = ({ children, currentView, setCurrentView }) => {
     const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
+    // Global Transaction Modal State (Lifted from Home)
+    const [isTransactionModalOpen, setIsTransactionModalOpen] = useState(false);
+    const [transactionToEdit, setTransactionToEdit] = useState(null);
+
     // Global Data Fetching (Lifted State)
     const { stats, transactions, wallets, goals, loading, formatCurrency, refreshData } = useDashboardData();
     const { notifications, unreadCount, markAsRead, markAllRead, analyzeAndNotify, addNotification, deleteNotification } = useNotifications(session?.user);
 
     // Automatic Recurring Processor
     useRecurringProcessor(session?.user);
-
 
     // Motivation Engine Trigger
     useEffect(() => {
@@ -62,6 +67,21 @@ const DashboardLayout = ({ children, currentView, setCurrentView }) => {
         window.location.reload();
     };
 
+    // Modal Handlers
+    const handleOpenTransactionModal = (txToEdit = null) => {
+        setTransactionToEdit(txToEdit);
+        setIsTransactionModalOpen(true);
+    };
+
+    const handleCloseTransactionModal = () => {
+        setIsTransactionModalOpen(false);
+        setTransactionToEdit(null);
+    };
+
+    const handleTransactionSuccess = () => {
+        if (typeof refreshData === 'function') refreshData();
+    };
+
     const renderView = () => {
         // Shared Props for children
         const sharedProps = {
@@ -72,7 +92,9 @@ const DashboardLayout = ({ children, currentView, setCurrentView }) => {
             goals,
             loading,
             formatCurrency,
-            refreshData
+            refreshData,
+            // Pass Modal Control Down
+            onOpenTransactionModal: handleOpenTransactionModal
         };
 
         switch (currentView) {
@@ -99,24 +121,34 @@ const DashboardLayout = ({ children, currentView, setCurrentView }) => {
             <div className="fixed top-0 left-0 w-full h-[500px] bg-gradient-to-b from-blue-900/10 to-transparent pointer-events-none" />
             <div className="fixed top-[-20%] right-[-10%] w-[800px] h-[800px] rounded-full bg-cyan-500/5 blur-[120px] pointer-events-none" />
 
-            <Sidebar
+            {/* Desktop Sidebar (Hidden on Mobile) */}
+            <div className="hidden md:flex">
+                <Sidebar
+                    currentView={currentView}
+                    setCurrentView={setCurrentView}
+                    isOpen={true} // Always open on desktop for layout purposes
+                    onClose={() => { }}
+                />
+            </div>
+
+            {/* Mobile Bottom Nav (Hidden on Desktop) */}
+            <MobileNav
                 currentView={currentView}
                 setCurrentView={setCurrentView}
-                isOpen={isMobileMenuOpen}
-                onClose={() => setIsMobileMenuOpen(false)}
+                onOpenTransaction={() => handleOpenTransactionModal(null)}
             />
 
-            <main className="md:ml-64 min-h-screen relative p-4 md:p-8">
+            {/* Main Content Area */}
+            {/* Increased pb-32 for Floating Island Nav spacing */}
+            <main className="md:ml-64 min-h-screen relative p-4 md:p-8 pb-32 md:pb-8">
                 {/* Top Header */}
                 <div className="flex items-center justify-between mb-8 md:mb-12">
                     <div className="flex items-center gap-4">
-                        {/* Mobile Menu Button */}
-                        <button
-                            onClick={() => setIsMobileMenuOpen(true)}
-                            className="md:hidden p-2 text-white/70 hover:text-white bg-white/5 rounded-xl active:scale-95 transition-all"
-                        >
-                            <Menu className="w-5 h-5" />
-                        </button>
+                        {/* Mobile Menu Button REMOVED - Replaced by Bottom Nav */}
+                        {/* Optionally keep it for specific non-nav actions or remove entirely. 
+                            For "World Class" mobile app feel, usually top-left menu is gone or moved to profile tab.
+                            Let's keep the Title but remove the Menu trigger since nav is bottom now.
+                        */}
 
                         <div>
                             <h1 className="text-xl md:text-2xl font-bold">Panel Principal</h1>
@@ -273,6 +305,16 @@ const DashboardLayout = ({ children, currentView, setCurrentView }) => {
 
                 {renderView()}
             </main>
+
+            {/* Global Transaction Modal */}
+            <TransactionModal
+                key={transactionToEdit ? transactionToEdit.id : 'global-new-transaction'}
+                isOpen={isTransactionModalOpen}
+                onClose={handleCloseTransactionModal}
+                onTransactionAdded={handleTransactionSuccess}
+                initialData={transactionToEdit}
+                wallets={wallets}
+            />
         </div>
     );
 };

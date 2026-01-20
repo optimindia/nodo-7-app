@@ -4,7 +4,7 @@ import ChartSection from '../../components/dashboard/ChartSection';
 import MonthlySummary from '../../components/dashboard/MonthlySummary';
 import ComparisonChart from '../../components/dashboard/ComparisonChart';
 import CompositionChart from '../../components/dashboard/CompositionChart';
-import TransactionModal from '../../components/dashboard/TransactionModal';
+
 import EpicButton from '../../components/ui/EpicButton';
 import AdvancedSearch from '../../components/dashboard/AdvancedSearch';
 import { Wallet, Users, ArrowUpRight, TrendingUp, Loader2, Plus, Pencil, Trash2 } from 'lucide-react';
@@ -20,7 +20,9 @@ const DashboardHome = ({
     goals = [],
     loading = false,
     formatCurrency,
-    refreshData
+
+    refreshData,
+    onOpenTransactionModal // Received from Layout
 }) => {
     // Helper to parse date ensuring LOCAL time for YYYY-MM-DD strings (Fixes "Yesterday" bug)
     const parseSmartDate = (dateStr) => {
@@ -35,9 +37,6 @@ const DashboardHome = ({
     // Props are now passed from Layout to avoid double fetching and enable global access
 
     // We can keep these local UI states
-    const [isModalOpen, setIsModalOpen] = useState(false);
-    const [transactionToEdit, setTransactionToEdit] = useState(null);
-
     // Local Search & Filters state
     const [searchQuery, setSearchQuery] = useState('');
     const [filterType, setFilterType] = useState('all'); // all, deposit, withdrawal
@@ -192,14 +191,9 @@ const DashboardHome = ({
 
     const dynamicStats = calculateStats(allMovements, timeRange);
 
-    const handleTransactionSuccess = () => {
-        // Trigger background refresh
-        if (typeof refreshData === 'function') refreshData();
-    };
-
+    // Use global modal handler from props
     const handleEdit = (tx) => {
-        setTransactionToEdit(tx);
-        setIsModalOpen(true);
+        if (onOpenTransactionModal) onOpenTransactionModal(tx);
     };
 
     const handleDelete = async (id) => {
@@ -221,11 +215,6 @@ const DashboardHome = ({
             // Revert if failed
             setOptimisticDeletedIds(prev => prev.filter(pid => pid !== id));
         }
-    };
-
-    const handleCloseModal = () => {
-        setIsModalOpen(false);
-        setTransactionToEdit(null);
     };
 
     if (loading) {
@@ -329,7 +318,7 @@ const DashboardHome = ({
                             </div>
 
                             <button
-                                onClick={() => setIsModalOpen(true)}
+                                onClick={() => onOpenTransactionModal && onOpenTransactionModal()}
                                 className="flex items-center gap-2 px-6 py-3 bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 rounded-xl hover:bg-cyan-500/20 transition-all font-bold text-sm"
                             >
                                 <Plus className="w-4 h-4" />
@@ -556,7 +545,7 @@ const DashboardHome = ({
                                                 <p className="mb-3 text-lg">{isSearching ? 'No encontramos coincidencias 🔍' : 'No hay movimientos aún'}</p>
                                                 {!isSearching && (
                                                     <button
-                                                        onClick={() => setIsModalOpen(true)}
+                                                        onClick={() => onOpenTransactionModal && onOpenTransactionModal()}
                                                         className="text-sm text-black font-bold bg-cyan-400 px-6 py-2 rounded-full hover:bg-cyan-300 transition-colors shadow-[0_0_20px_rgba(34,211,238,0.4)]"
                                                     >
                                                         + Crear Nuevo
@@ -684,16 +673,6 @@ const DashboardHome = ({
                 </div>
             </LayoutGroup>
 
-            <TransactionModal
-                key={transactionToEdit ? transactionToEdit.id : 'new-transaction'}
-                isOpen={isModalOpen}
-                onClose={handleCloseModal}
-                onTransactionAdded={handleTransactionSuccess}
-                initialData={transactionToEdit}
-
-                userId={null} // Auth handled internally now
-                wallets={wallets} // Pass calculated wallets
-            />
         </div>
     );
 };

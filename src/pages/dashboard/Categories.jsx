@@ -1,18 +1,18 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Tag, Trash2, Edit2, X, Download, ShieldCheck, Smile } from 'lucide-react';
+import { Plus, Tag, Trash2, Edit2, X, Download, ShieldCheck, ChevronUp, ChevronDown } from 'lucide-react';
 import { useCategories } from '../../hooks/useCategories';
 
 const EmojiPicker = ({ onSelect }) => {
     const emojis = [
-        '💰', '💸', '💳', '🏦', '💎', // Money
-        '🍔', '🍕', '☕', '🛒', '🍎', // Food
-        '🏠', '💡', '🚿', '🛋️', '🔒', // Home
-        '🚗', '✈️', '🚌', '⛽', '🗺️', // Transport
-        '🎬', '🎮', '🎵', '📺', '🎉', // Fun
-        '🏥', '💊', '💪', '🧘', '⚕️', // Health
-        '🎓', '📚', '💼', '💻', '📱', // Work/Edu
-        '🛍️', '🎁', '👕', '🐶', '👶'  // Shopping/Family
+        '💰', '💸', '💳', '🏦', '💎',
+        '🍔', '🍕', '☕', '🛒', '🍎',
+        '🏠', '💡', '🚿', '🛋️', '🔒',
+        '🚗', '✈️', '🚌', '⛽', '🗺️',
+        '🎬', '🎮', '🎵', '📺', '🎉',
+        '🏥', '💊', '💪', '🧘', '⚕️',
+        '🎓', '📚', '💼', '💻', '📱',
+        '🛍️', '🎁', '👕', '🐶', '👶'
     ];
 
     return (
@@ -41,6 +41,48 @@ const Categories = () => {
     const [type, setType] = useState('expense');
     const [icon, setIcon] = useState('🏷️');
     const [color, setColor] = useState('blue');
+
+    // Local Reorder State
+    const [localExpenses, setLocalExpenses] = useState([]);
+    const [localIncome, setLocalIncome] = useState([]);
+
+    // Sync from provider to local state on load/change
+    useEffect(() => {
+        setLocalExpenses(categories.filter(c => c.type === 'expense'));
+        setLocalIncome(categories.filter(c => c.type === 'income'));
+    }, [categories]);
+
+    // Handle Move (Buttons)
+    const handleMove = async (index, direction, listType) => {
+        const list = listType === 'expense' ? [...localExpenses] : [...localIncome];
+
+        if (direction === 'up') {
+            if (index === 0) return; // Can't move up
+            // Swap with previous
+            [list[index - 1], list[index]] = [list[index], list[index - 1]];
+        } else {
+            if (index === list.length - 1) return; // Can't move down
+            // Swap with next
+            [list[index + 1], list[index]] = [list[index], list[index + 1]];
+        }
+
+        // Update UI immediately
+        if (listType === 'expense') setLocalExpenses(list);
+        else setLocalIncome(list);
+
+        // Update DB
+        try {
+            const offset = listType === 'income' ? 1000 : 0;
+            // Update orders based on new index positions
+            // We update the two swapped items specifically to save bandwidth, or all if needed.
+            // Updating all effectively ensures consistency.
+            await Promise.all(list.map((cat, idx) =>
+                updateCategory(cat.id, { display_order: offset + idx })
+            ));
+        } catch (err) {
+            console.error("Move failed", err);
+        }
+    };
 
     const openCreate = () => {
         setEditingCat(null);
@@ -84,12 +126,12 @@ const Categories = () => {
     const colors = ['blue', 'cyan', 'purple', 'pink', 'red', 'orange', 'yellow', 'green'];
 
     return (
-        <div className="space-y-8">
+        <div className="space-y-8 pb-32">
             {/* Header */}
             <div className="flex justify-between items-end">
                 <div>
                     <h1 className="text-3xl font-bold text-white mb-2">Categorías</h1>
-                    <p className="text-white/40">Organiza tus finanzas con tu propio estilo.</p>
+                    <p className="text-white/40">Usa las flechas para ordenar tu lista.</p>
                 </div>
                 <button
                     onClick={openCreate}
@@ -100,22 +142,6 @@ const Categories = () => {
                 </button>
             </div>
 
-            {/* Empty State / Defaults */}
-            {!loading && categories.length === 0 && (
-                <div className="flex flex-col items-center justify-center p-12 border border-dashed border-white/10 rounded-3xl bg-white/5 text-center">
-                    <ShieldCheck className="w-16 h-16 text-cyan-500/50 mb-4" />
-                    <h3 className="text-xl font-bold text-white mb-2">Comienza Rápido</h3>
-                    <p className="text-white/40 max-w-md mb-6">Parece que aún no tienes categorías. Podemos instalar un pack básico (Casa, Comida, Transporte) para que empieces ya.</p>
-                    <button
-                        onClick={() => seedDefaults()}
-                        className="px-6 py-3 bg-white/10 border border-white/10 hover:bg-white/20 rounded-xl text-white font-bold flex items-center gap-2 transition-colors"
-                    >
-                        <Download className="w-4 h-4" />
-                        Instalar Pack Básico
-                    </button>
-                </div>
-            )}
-
             {/* List */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 {/* Expenses Column */}
@@ -123,22 +149,47 @@ const Categories = () => {
                     <h3 className="text-sm font-bold text-pink-400 uppercase tracking-wider flex items-center gap-2">
                         <span className="w-2 h-2 rounded-full bg-pink-500"></span> Gastos
                     </h3>
-                    {categories.filter(c => c.type === 'expense').map(cat => (
-                        <motion.div
-                            key={cat.id}
-                            whileHover={{ x: 5 }}
-                            onClick={() => openEdit(cat)}
-                            className="flex items-center justify-between p-4 rounded-xl bg-white/5 border border-white/5 hover:border-white/10 cursor-pointer group"
-                        >
-                            <div className="flex items-center gap-4">
-                                <div className={`w-10 h-10 rounded-lg bg-${cat.color}-500/20 flex items-center justify-center text-xl`}>
-                                    {cat.icon}
+                    <div className="space-y-3">
+                        {localExpenses.map((cat, index) => (
+                            <div
+                                key={cat.id}
+                                className="flex items-center justify-between p-4 rounded-xl bg-white/5 border border-white/5 hover:border-white/10 group transition-colors"
+                            >
+                                <div className="flex items-center gap-4 cursor-pointer" onClick={() => openEdit(cat)}>
+                                    <div className={`w-10 h-10 rounded-lg bg-${cat.color}-500/20 flex items-center justify-center text-xl`}>
+                                        {cat.icon}
+                                    </div>
+                                    <span className="font-bold text-white">{cat.name}</span>
                                 </div>
-                                <span className="font-bold text-white">{cat.name}</span>
+
+                                <div className="flex items-center gap-3">
+                                    <div className="flex flex-col gap-1">
+                                        <button
+                                            onClick={() => handleMove(index, 'up', 'expense')}
+                                            disabled={index === 0}
+                                            className="p-1 bg-white/5 rounded hover:bg-white/20 text-white/40 hover:text-white disabled:opacity-0 transition-colors"
+                                        >
+                                            <ChevronUp className="w-3 h-3" />
+                                        </button>
+                                        <button
+                                            onClick={() => handleMove(index, 'down', 'expense')}
+                                            disabled={index === localExpenses.length - 1}
+                                            className="p-1 bg-white/5 rounded hover:bg-white/20 text-white/40 hover:text-white disabled:opacity-0 transition-colors"
+                                        >
+                                            <ChevronDown className="w-3 h-3" />
+                                        </button>
+                                    </div>
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); openEdit(cat); }}
+                                        className="p-2 text-white/20 hover:text-white transition-colors"
+                                    >
+                                        <Edit2 className="w-4 h-4" />
+                                    </button>
+                                </div>
                             </div>
-                            <Edit2 className="w-4 h-4 text-white/20 group-hover:text-white/60 transition-colors" />
-                        </motion.div>
-                    ))}
+                        ))}
+                        {localExpenses.length === 0 && <p className="text-white/20 text-center py-4">No hay categorías de gastos.</p>}
+                    </div>
                 </div>
 
                 {/* Income Column */}
@@ -146,22 +197,46 @@ const Categories = () => {
                     <h3 className="text-sm font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-2">
                         <span className="w-2 h-2 rounded-full bg-emerald-500"></span> Ingresos
                     </h3>
-                    {categories.filter(c => c.type === 'income').map(cat => (
-                        <motion.div
-                            key={cat.id}
-                            whileHover={{ x: 5 }}
-                            onClick={() => openEdit(cat)}
-                            className="flex items-center justify-between p-4 rounded-xl bg-white/5 border border-white/5 hover:border-white/10 cursor-pointer group"
-                        >
-                            <div className="flex items-center gap-4">
-                                <div className={`w-10 h-10 rounded-lg bg-${cat.color}-500/20 flex items-center justify-center text-xl`}>
-                                    {cat.icon}
+                    <div className="space-y-3">
+                        {localIncome.map((cat, index) => (
+                            <div
+                                key={cat.id}
+                                className="flex items-center justify-between p-4 rounded-xl bg-white/5 border border-white/5 hover:border-white/10 group transition-colors"
+                            >
+                                <div className="flex items-center gap-4 cursor-pointer" onClick={() => openEdit(cat)}>
+                                    <div className={`w-10 h-10 rounded-lg bg-${cat.color}-500/20 flex items-center justify-center text-xl`}>
+                                        {cat.icon}
+                                    </div>
+                                    <span className="font-bold text-white">{cat.name}</span>
                                 </div>
-                                <span className="font-bold text-white">{cat.name}</span>
+                                <div className="flex items-center gap-3">
+                                    <div className="flex flex-col gap-1">
+                                        <button
+                                            onClick={() => handleMove(index, 'up', 'income')}
+                                            disabled={index === 0}
+                                            className="p-1 bg-white/5 rounded hover:bg-white/20 text-white/40 hover:text-white disabled:opacity-0 transition-colors"
+                                        >
+                                            <ChevronUp className="w-3 h-3" />
+                                        </button>
+                                        <button
+                                            onClick={() => handleMove(index, 'down', 'income')}
+                                            disabled={index === localIncome.length - 1}
+                                            className="p-1 bg-white/5 rounded hover:bg-white/20 text-white/40 hover:text-white disabled:opacity-0 transition-colors"
+                                        >
+                                            <ChevronDown className="w-3 h-3" />
+                                        </button>
+                                    </div>
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); openEdit(cat); }}
+                                        className="p-2 text-white/20 hover:text-white transition-colors"
+                                    >
+                                        <Edit2 className="w-4 h-4" />
+                                    </button>
+                                </div>
                             </div>
-                            <Edit2 className="w-4 h-4 text-white/20 group-hover:text-white/60 transition-colors" />
-                        </motion.div>
-                    ))}
+                        ))}
+                        {localIncome.length === 0 && <p className="text-white/20 text-center py-4">No hay categorías de ingresos.</p>}
+                    </div>
                 </div>
             </div>
 
@@ -173,7 +248,7 @@ const Categories = () => {
                             initial={{ scale: 0.95, opacity: 0 }}
                             animate={{ scale: 1, opacity: 1 }}
                             exit={{ scale: 0.95, opacity: 0 }}
-                            className="w-full max-w-sm bg-[#0f172a] border border-white/20 rounded-3xl p-6 shadow-2xl"
+                            className="w-full max-w-sm bg-[#0f172a] border border-white/20 rounded-3xl p-6 shadow-2xl relative"
                         >
                             <div className="flex justify-between items-center mb-6">
                                 <h3 className="text-xl font-bold text-white">{editingCat ? 'Editar' : 'Crear'} Categoría</h3>
@@ -235,5 +310,4 @@ const Categories = () => {
         </div>
     );
 };
-
 export default Categories;
