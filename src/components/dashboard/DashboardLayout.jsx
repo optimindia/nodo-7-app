@@ -18,6 +18,7 @@ import Categories from '../../pages/dashboard/Categories';
 import Shopping from '../../pages/dashboard/Shopping';
 import AdminDashboard from '../../pages/admin/AdminDashboard';
 import Debts from '../../pages/dashboard/Debts';
+import Budgets from '../../pages/dashboard/Budgets';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const DashboardLayout = ({ children, currentView, setCurrentView }) => {
@@ -26,6 +27,9 @@ const DashboardLayout = ({ children, currentView, setCurrentView }) => {
     const [isProfileOpen, setIsProfileOpen] = useState(false);
     const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+    // Sidebar State
+    const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
     // Global Transaction Modal State (Lifted from Home)
     const [isTransactionModalOpen, setIsTransactionModalOpen] = useState(false);
@@ -94,7 +98,8 @@ const DashboardLayout = ({ children, currentView, setCurrentView }) => {
             formatCurrency,
             refreshData,
             // Pass Modal Control Down
-            onOpenTransactionModal: handleOpenTransactionModal
+            onOpenTransactionModal: handleOpenTransactionModal,
+            setCurrentView // Pass View Controller
         };
 
         switch (currentView) {
@@ -106,6 +111,7 @@ const DashboardLayout = ({ children, currentView, setCurrentView }) => {
             case 'categories': return <Categories />;
             case 'ai-chat': return <AIChat />;
             case 'debts': return <Debts {...sharedProps} />;
+            case 'budgets': return <Budgets {...sharedProps} />;
             case 'settings': return <Settings />;
             case 'admin': return <AdminDashboard />;
             default: return <DashboardHome {...sharedProps} />;
@@ -128,6 +134,8 @@ const DashboardLayout = ({ children, currentView, setCurrentView }) => {
                     setCurrentView={setCurrentView}
                     isOpen={true} // Always open on desktop for layout purposes
                     onClose={() => { }}
+                    isCollapsed={isSidebarCollapsed}
+                    toggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
                 />
             </div>
 
@@ -139,8 +147,8 @@ const DashboardLayout = ({ children, currentView, setCurrentView }) => {
             />
 
             {/* Main Content Area */}
-            {/* Increased pb-32 for Floating Island Nav spacing */}
-            <main className="md:ml-64 min-h-screen relative p-4 md:p-8 pb-32 md:pb-8">
+            {/* Dynamic margin based on collapsed state */}
+            <main className={`transition-all duration-300 ease-in-out min-h-screen relative p-4 md:p-8 pb-32 md:pb-8 ${isSidebarCollapsed ? 'md:ml-20' : 'md:ml-64'}`}>
                 {/* Top Header */}
                 <div className="flex items-center justify-between mb-8 md:mb-12">
                     <div className="flex items-center gap-4">

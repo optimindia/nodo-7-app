@@ -13,7 +13,8 @@ import {
     Tag,
     Settings,
     ShieldCheck,
-    LogOut
+    LogOut,
+    PieChart
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../context/AuthContext';
@@ -37,6 +38,7 @@ const MobileNav = ({ currentView, setCurrentView, onOpenTransaction }) => {
         { id: 'analytics', icon: <BarChart2 size={24} />, label: 'Analíticas', color: 'bg-blue-500/10 text-blue-400', border: 'border-blue-500/20' },
         { id: 'shopping', icon: <ShoppingCart size={24} />, label: 'Compras', color: 'bg-orange-500/10 text-orange-400', border: 'border-orange-500/20' },
         { id: 'debts', icon: <TrendingDown size={24} />, label: 'Deudas', color: 'bg-rose-500/10 text-rose-400', border: 'border-rose-500/20' },
+        { id: 'budgets', icon: <PieChart size={24} />, label: 'Presupuestos', color: 'bg-indigo-500/10 text-indigo-400', border: 'border-indigo-500/20' }, // New App
         { id: 'categories', icon: <Tag size={24} />, label: 'Categorías', color: 'bg-emerald-500/10 text-emerald-400', border: 'border-emerald-500/20' },
         { id: 'settings', icon: <Settings size={24} />, label: 'Ajustes', color: 'bg-slate-500/10 text-slate-400', border: 'border-slate-500/20' },
     ];

@@ -12,6 +12,7 @@ const ChartSection = lazy(() => import('../../components/dashboard/ChartSection'
 const MonthlySummary = lazy(() => import('../../components/dashboard/MonthlySummary'));
 const ComparisonChart = lazy(() => import('../../components/dashboard/ComparisonChart'));
 const CompositionChart = lazy(() => import('../../components/dashboard/CompositionChart'));
+const BudgetWidget = lazy(() => import('../../components/dashboard/BudgetWidget')); // New Widget
 
 // Skeleton Loader for Charts
 const ChartSkeleton = () => (
@@ -28,7 +29,8 @@ const DashboardHome = ({
     formatCurrency,
 
     refreshData,
-    onOpenTransactionModal // Received from Layout
+    onOpenTransactionModal, // Received from Layout
+    setCurrentView // Received from Layout
 }) => {
     // Props are now passed from Layout to avoid double fetching and enable global access
 
@@ -434,6 +436,15 @@ const DashboardHome = ({
                             />
                         </div>
 
+                        {/* Budget Widget Row (New) */}
+                        <Suspense fallback={<div className="h-24 w-full bg-white/5 rounded-2xl animate-pulse" />}>
+                            <BudgetWidget
+                                transactions={allMovements}
+                                formatCurrency={formatCurrency}
+                                onViewChange={setCurrentView}
+                            />
+                        </Suspense>
+
                         {/* Main Chart + Widgets Area */}
                         <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
                             <div className="xl:col-span-2">
@@ -682,7 +693,7 @@ const DashboardHome = ({
                 </div>
             </LayoutGroup>
 
-        </div>
+        </div >
     );
 };
 

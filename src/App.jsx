@@ -17,6 +17,7 @@ const Goals = lazy(() => import('./pages/dashboard/Goals'));
 const AIChat = lazy(() => import('./pages/dashboard/AIChat'));
 const Categories = lazy(() => import('./pages/dashboard/Categories'));
 const Debts = lazy(() => import('./pages/dashboard/Debts'));
+const Budgets = lazy(() => import('./pages/dashboard/Budgets')); // Added Budgets lazy import
 const UserSetupWizard = lazy(() => import('./pages/UserSetupWizard'));
 
 const AppContent = () => {
@@ -51,6 +52,7 @@ const AppContent = () => {
           {currentView === 'ai-chat' && <AIChat />}
           {currentView === 'categories' && <Categories />}
           {currentView === 'debts' && <Debts />}
+          {currentView === 'budgets' && <Budgets />}
           {currentView === 'settings' && <Settings />}
         </Suspense>
       </DashboardLayout>
