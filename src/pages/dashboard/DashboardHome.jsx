@@ -1,16 +1,22 @@
-import React, { useState } from 'react';
+import React, { useState, lazy, Suspense } from 'react';
 import StatsCard from '../../components/dashboard/StatsCard';
-import ChartSection from '../../components/dashboard/ChartSection';
-import MonthlySummary from '../../components/dashboard/MonthlySummary';
-import ComparisonChart from '../../components/dashboard/ComparisonChart';
-import CompositionChart from '../../components/dashboard/CompositionChart';
-
-import EpicButton from '../../components/ui/EpicButton';
 import AdvancedSearch from '../../components/dashboard/AdvancedSearch';
+import EpicButton from '../../components/ui/EpicButton';
 import { Wallet, Users, ArrowUpRight, TrendingUp, Loader2, Plus, Pencil, Trash2 } from 'lucide-react';
 import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
 import { supabase } from '../../lib/supabaseClient';
 import { parseArgentine } from '../../utils/format';
+
+// Lazy Load Heavy Charts
+const ChartSection = lazy(() => import('../../components/dashboard/ChartSection'));
+const MonthlySummary = lazy(() => import('../../components/dashboard/MonthlySummary'));
+const ComparisonChart = lazy(() => import('../../components/dashboard/ComparisonChart'));
+const CompositionChart = lazy(() => import('../../components/dashboard/CompositionChart'));
+
+// Skeleton Loader for Charts
+const ChartSkeleton = () => (
+    <div className="h-[400px] w-full bg-white/5 rounded-[2.5rem] animate-pulse border border-white/5" />
+);
 
 const DashboardHome = ({
     searchQuery: globalSearchQuery,
@@ -440,38 +446,46 @@ const DashboardHome = ({
                         {/* Main Chart + Widgets Area */}
                         <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
                             <div className="xl:col-span-2">
-                                <ChartSection transactions={allMovements} formatCurrency={formatCurrency} />
+                                <Suspense fallback={<ChartSkeleton />}>
+                                    <ChartSection transactions={allMovements} formatCurrency={formatCurrency} />
+                                </Suspense>
                             </div>
                             <div className="xl:col-span-1">
-                                <MonthlySummary
-                                    income={dynamicStats.income.value}
-                                    expenses={dynamicStats.expenses.value}
-                                    title={
-                                        timeRange === 'today' ? "Resumen Diario" :
-                                            timeRange === 'yesterday' ? "Resumen de Ayer" :
-                                                timeRange === 'this_week' ? "Resumen Semanal" :
-                                                    timeRange === 'this_month' ? "Resumen Mensual" :
-                                                        timeRange === 'last_month' ? "Mes Pasado" :
-                                                            timeRange === 'year' ? "Resumen Anual" :
-                                                                "Resumen Personalizado"
-                                    }
-                                    subtitle={
-                                        timeRange === 'today' ? "Ingresos vs Gastos hoy" :
-                                            timeRange === 'yesterday' ? "Ingresos vs Gastos ayer" :
-                                                "Ingresos vs Gastos este periodo"
-                                    }
-                                    formatCurrency={formatCurrency}
-                                />
+                                <Suspense fallback={<ChartSkeleton />}>
+                                    <MonthlySummary
+                                        income={dynamicStats.income.value}
+                                        expenses={dynamicStats.expenses.value}
+                                        title={
+                                            timeRange === 'today' ? "Resumen Diario" :
+                                                timeRange === 'yesterday' ? "Resumen de Ayer" :
+                                                    timeRange === 'this_week' ? "Resumen Semanal" :
+                                                        timeRange === 'this_month' ? "Resumen Mensual" :
+                                                            timeRange === 'last_month' ? "Mes Pasado" :
+                                                                timeRange === 'year' ? "Resumen Anual" :
+                                                                    "Resumen Personalizado"
+                                        }
+                                        subtitle={
+                                            timeRange === 'today' ? "Ingresos vs Gastos hoy" :
+                                                timeRange === 'yesterday' ? "Ingresos vs Gastos ayer" :
+                                                    "Ingresos vs Gastos este periodo"
+                                        }
+                                        formatCurrency={formatCurrency}
+                                    />
+                                </Suspense>
                             </div>
                         </div>
 
                         {/* Analytics Row */}
                         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                             <div className="lg:col-span-2">
-                                <ComparisonChart transactions={allMovements} formatCurrency={formatCurrency} />
+                                <Suspense fallback={<ChartSkeleton />}>
+                                    <ComparisonChart transactions={allMovements} formatCurrency={formatCurrency} />
+                                </Suspense>
                             </div>
                             <div className="lg:col-span-1">
-                                <CompositionChart wallets={wallets} formatCurrency={formatCurrency} />
+                                <Suspense fallback={<ChartSkeleton />}>
+                                    <CompositionChart wallets={wallets} formatCurrency={formatCurrency} />
+                                </Suspense>
                             </div>
                         </div>
                     </motion.div>

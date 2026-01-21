@@ -44,7 +44,7 @@ const Sidebar = ({ currentView, setCurrentView, isOpen, onClose }) => {
             <div className="p-8 pb-4 flex justify-between items-center">
                 <div className="flex items-center justify-center w-full">
                     <img
-                        src="/logo.png"
+                        src="/logo.svg"
                         alt="OptiCash Logo"
                         className="h-12 w-auto object-contain drop-shadow-[0_0_15px_rgba(34,211,238,0.5)]"
                     />
