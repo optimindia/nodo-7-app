@@ -2,10 +2,10 @@ import React, { useState, lazy, Suspense } from 'react';
 import StatsCard from '../../components/dashboard/StatsCard';
 import AdvancedSearch from '../../components/dashboard/AdvancedSearch';
 import EpicButton from '../../components/ui/EpicButton';
-import { Wallet, Users, ArrowUpRight, TrendingUp, Loader2, Plus, Pencil, Trash2 } from 'lucide-react';
+import { Wallet, Users, ArrowUpRight, TrendingUp, Loader2, Plus, Pencil, Trash2, Clock } from 'lucide-react';
 import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
 import { supabase } from '../../lib/supabaseClient';
-import { parseArgentine } from '../../utils/format';
+import { parseArgentine, parseSmartDate } from '../../utils/format';
 
 // Lazy Load Heavy Charts
 const ChartSection = lazy(() => import('../../components/dashboard/ChartSection'));
@@ -30,16 +30,6 @@ const DashboardHome = ({
     refreshData,
     onOpenTransactionModal // Received from Layout
 }) => {
-    // Helper to parse date ensuring LOCAL time for YYYY-MM-DD strings (Fixes "Yesterday" bug)
-    const parseSmartDate = (dateStr) => {
-        if (!dateStr) return new Date();
-        // If strict YYYY-MM-DD, parse as Local Midnight manually
-        if (typeof dateStr === 'string' && dateStr.length === 10 && dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
-            const [year, month, day] = dateStr.split('-').map(Number);
-            return new Date(year, month - 1, day);
-        }
-        return new Date(dateStr); // Fallback for ISO strings
-    };
     // Props are now passed from Layout to avoid double fetching and enable global access
 
     // We can keep these local UI states
@@ -52,6 +42,7 @@ const DashboardHome = ({
         maxAmount: '',
         dateRange: null // '7days', '30days'
     });
+
 
     // View Mode
     const [showAllHistory, setShowAllHistory] = useState(false);
@@ -624,8 +615,12 @@ const DashboardHome = ({
 
                                                             {/* Meta: Date + Badges */}
                                                             <div className="flex flex-wrap items-center gap-2 text-xs text-white/40 font-medium">
-                                                                <span className="truncate">
+                                                                <span className="truncate flex items-center gap-1.5">
                                                                     {parseSmartDate(tx.date || tx.created_at).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })}
+                                                                    <span className="flex items-center gap-0.5 bg-white/5 px-1.5 py-0.5 rounded text-[10px] text-white/30">
+                                                                        <Clock className="w-2.5 h-2.5" />
+                                                                        {parseSmartDate(tx.date || tx.created_at).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
+                                                                    </span>
                                                                 </span>
 
                                                                 {/* Mobile: Compact Wallet Dot */}

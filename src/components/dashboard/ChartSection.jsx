@@ -3,6 +3,7 @@ import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { motion } from 'framer-motion';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, subMonths, subWeeks, subYears, min, max, startOfDay, endOfDay, isAfter } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { parseSmartDate } from '../../utils/format';
 
 const CustomTooltip = ({ active, payload, label, formatCurrency }) => {
     if (active && payload && payload.length) {
@@ -29,7 +30,7 @@ const ChartSection = ({ transactions = [], formatCurrency }) => {
             }));
         }
 
-        const sortedTx = [...transactions].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+        const sortedTx = [...transactions].sort((a, b) => parseSmartDate(a.date || a.created_at) - parseSmartDate(b.date || b.created_at));
         const now = new Date();
         const end = endOfDay(now);
         let start;
@@ -52,7 +53,7 @@ const ChartSection = ({ transactions = [], formatCurrency }) => {
                 start = subYears(now, 1);
                 break;
             case 'all':
-                start = startOfDay(new Date(sortedTx[0].created_at));
+                start = startOfDay(parseSmartDate(sortedTx[0].date || sortedTx[0].created_at));
                 break;
             default:
                 start = subMonths(now, 1);
@@ -63,7 +64,7 @@ const ChartSection = ({ transactions = [], formatCurrency }) => {
 
         // Calculate initial balance before the start date
         let currentBalance = sortedTx
-            .filter(tx => new Date(tx.created_at) < start)
+            .filter(tx => parseSmartDate(tx.date || tx.created_at) < start)
             .reduce((acc, tx) => {
                 const amount = Number(tx.amount);
                 if (tx.type === 'deposit' || tx.type === 'yield') return acc + amount;
@@ -73,7 +74,7 @@ const ChartSection = ({ transactions = [], formatCurrency }) => {
 
         return days.map(day => {
             // Find transactions for this day
-            const dayTx = sortedTx.filter(tx => isSameDay(new Date(tx.created_at), day));
+            const dayTx = sortedTx.filter(tx => isSameDay(parseSmartDate(tx.date || tx.created_at), day));
 
             // Apply transactions to balance
             dayTx.forEach(tx => {

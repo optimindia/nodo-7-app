@@ -5,7 +5,23 @@ import { supabase } from '../../lib/supabaseClient';
 import { useGoals } from '../../hooks/useGoals';
 import { useCategories } from '../../hooks/useCategories';
 import { useAuth } from '../../context/AuthContext';
-import { formatCurrency } from '../../utils/format';
+import { formatCurrency, getLocalDateISOString } from '../../utils/format';
+
+// Helper: Format number to Argentine string (1.000,00)
+const formatNumber = (val) => {
+    if (!val && val !== 0) return '';
+    val = val.toString().replace('.', ','); // Simply replace first dot (JS float) with comma
+
+    const parts = val.split(',');
+    const integerPart = parts[0].replace(/\D/g, ''); // Only numbers
+    const formattedInt = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+
+    // If original had valid decimal part
+    if (parts.length > 1) {
+        return `${formattedInt},${parts[1].slice(0, 2)}`;
+    }
+    return formattedInt;
+};
 
 const TransactionModal = ({ isOpen, onClose, onTransactionAdded, userId, initialData, wallets: propWallets }) => {
     const { user } = useAuth();
@@ -13,11 +29,11 @@ const TransactionModal = ({ isOpen, onClose, onTransactionAdded, userId, initial
     const { categories, addCategory } = useCategories();
 
     // Form States
-    const [amount, setAmount] = useState(initialData?.amount || '');
+    const [amount, setAmount] = useState(initialData?.amount ? formatNumber(initialData.amount) : '');
     const [description, setDescription] = useState(initialData?.description || '');
     const [type, setType] = useState(initialData?.type || 'expense');
     const [category, setCategory] = useState(initialData?.category || '');
-    const [date, setDate] = useState(initialData?.date || new Date().toISOString().split('T')[0]);
+    const [date, setDate] = useState(initialData?.date ? initialData.date.split('T')[0] : getLocalDateISOString());
     const [selectedGoal, setSelectedGoal] = useState(initialData?.goal_id || '');
 
     // Category Creation State
@@ -66,20 +82,11 @@ const TransactionModal = ({ isOpen, onClose, onTransactionAdded, userId, initial
             setSuccess(false);
             setError(null);
             setIsWalletSelectorOpen(false);
+            setDate(getLocalDateISOString()); // Reset to proper local today
         }
     }, [isOpen]);
 
     const activeCategories = categories.filter(c => c.type === (type === 'deposit' ? 'income' : 'expense'));
-
-    // Helper: Format number to Argentine string (1.000,00)
-    const formatNumber = (val) => {
-        if (!val) return '';
-        val = val.toString().replace(/\./g, ','); // Ensure dot becomes comma if passed as float
-        const parts = val.split(',');
-        const integerPart = parts[0].replace(/\D/g, ''); // Only numbers
-        const formattedInt = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-        return parts.length > 1 ? `${formattedInt},${parts[1].slice(0, 2)}` : formattedInt;
-    };
 
     const handleAmountChange = (e) => {
         let val = e.target.value;
@@ -116,17 +123,28 @@ const TransactionModal = ({ isOpen, onClose, onTransactionAdded, userId, initial
 
             const targetUserId = user?.id || userId;
 
-            // 1. Transaction Operation (Insert/Update)
+            // 1. Determine Correct Time ISO
+            // If user selected "Today", use CURRENT TIME to preserve exact moment
+            // If user selected another day, use Noon (12:00) to safely land in that day regardless of timezone shifts
+            const todayISO = getLocalDateISOString();
+            let finalDateISO;
+
+            if (date === todayISO) {
+                finalDateISO = new Date().toISOString(); // Current timestamp for real-time accuracy
+            } else {
+                finalDateISO = new Date(date + 'T12:00:00').toISOString(); // Safe mid-day for past/future
+            }
+
+            // 2. Transaction Operation
             let txOperation;
 
-            // FIX TIMEZONE: Append T12:00:00 to ensure date stays correct in all timezones
             const payload = {
                 user_id: targetUserId,
                 amount: rawAmount,
                 description: finalDesc,
                 type: type === 'deposit' ? 'deposit' : 'withdrawal',
                 category: finalCategory,
-                date: new Date(date + 'T12:00:00').toISOString(),
+                date: finalDateISO,
                 wallet_id: selectedWallet,
                 goal_id: selectedGoal || null
             };
